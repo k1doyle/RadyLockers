@@ -1,0 +1,102 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum LockerStatus {
+  AVAILABLE
+  ASSIGNED
+  PENDING_RETURN
+  RETURNED
+  OVERDUE
+  DISABLED
+}
+
+enum LockerType {
+  OUTDOOR_METAL_COMBINATION
+}
+
+enum RequestStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ASSIGNED
+  WAITLISTED
+  CLOSED
+  DECLINED
+}
+
+enum FeeModel {
+  FLAT_25_NON_REFUNDABLE
+  DEPOSIT_50_WITH_25_REFUND
+}
+
+enum RefundStatus {
+  NOT_APPLICABLE
+  PENDING
+  COMPLETED
+  FORFEITED
+}
+
+model Locker {
+  locker_id          Int             @id @default(autoincrement())
+  locker_number      String          @unique
+  location           String
+  locker_type        LockerType      @default(OUTDOOR_METAL_COMBINATION)
+  status             LockerStatus    @default(AVAILABLE)
+  combo_1            String
+  combo_2            String
+  combo_3            String
+  combo_4            String
+  combo_5            String
+  active_combo_index Int             @default(1)
+  notes              String?
+  disabled_reason    String?
+  created_at         DateTime        @default(now())
+  updated_at         DateTime        @updatedAt
+  assignments        Assignment[]
+  auditLogs          AuditLog[]
+}
+
+model Assignment {
+  request_id             Int           @id @default(autoincrement())
+  student_name           String
+  ucsd_email             String
+  pid_or_student_id      String
+  program                String
+  requested_quarter      String
+  request_status         RequestStatus @default(SUBMITTED)
+  assigned_locker_id     Int?
+  assignment_start_date  DateTime?
+  assignment_end_date    DateTime?
+  returned_date          DateTime?
+  return_verified_by     String?
+  renewal_requested      Boolean       @default(false)
+  notes                  String?
+  fee_model              FeeModel      @default(FLAT_25_NON_REFUNDABLE)
+  amount_charged         Int           @default(25)
+  refundable_amount      Int           @default(0)
+  refund_status          RefundStatus  @default(NOT_APPLICABLE)
+  refund_date            DateTime?
+  payment_notes          String?
+  created_at             DateTime      @default(now())
+  updated_at             DateTime      @updatedAt
+  locker                 Locker?       @relation(fields: [assigned_locker_id], references: [locker_id])
+  auditLogs              AuditLog[]
+}
+
+model AuditLog {
+  id            Int         @id @default(autoincrement())
+  action        String
+  actor         String
+  details       String
+  created_at    DateTime    @default(now())
+  lockerId      Int?
+  assignmentId  Int?
+  locker        Locker?      @relation(fields: [lockerId], references: [locker_id])
+  assignment    Assignment?  @relation(fields: [assignmentId], references: [request_id])
+}
