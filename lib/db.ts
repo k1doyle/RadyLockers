@@ -106,6 +106,15 @@ type CompleteReturnInput = {
   now: string;
 };
 
+type LockerComboRow = {
+  active_combo_index: number;
+  combo_1: string;
+  combo_2: string;
+  combo_3: string;
+  combo_4: string;
+  combo_5: string;
+};
+
 const rootDir = process.cwd();
 const sqliteSchemaPath = path.join(rootDir, 'db', 'schema.sql');
 const configuredDatabaseUrl = getConfiguredDatabaseUrl();
@@ -147,6 +156,11 @@ function normalizeInteger(value: unknown, fallback = 0) {
   if (typeof value === 'number') return value;
   if (typeof value === 'string' && value !== '') return Number(value);
   return fallback;
+}
+
+function getActiveComboValue(locker: LockerComboRow) {
+  const combos = [locker.combo_1, locker.combo_2, locker.combo_3, locker.combo_4, locker.combo_5];
+  return combos[locker.active_combo_index - 1] || locker.combo_1;
 }
 
 function getRequestedRentalPeriod(renewalRequested: number) {
@@ -622,12 +636,31 @@ export async function assignLockerRecord(input: AssignLockerInput) {
 
       db.prepare(`UPDATE lockers SET status = 'ASSIGNED', updated_at = ? WHERE locker_id = ?`).run(input.updated_at, input.locker_id);
 
-      const locker = db.prepare(`SELECT locker_number FROM lockers WHERE locker_id = ?`).get(input.locker_id) as { locker_number: string };
-      const assignment = db.prepare(`SELECT student_name FROM assignments WHERE request_id = ?`).get(input.request_id) as { student_name: string };
+      const locker = db.prepare(`
+        SELECT locker_number, location, active_combo_index, combo_1, combo_2, combo_3, combo_4, combo_5
+        FROM lockers
+        WHERE locker_id = ?
+      `).get(input.locker_id) as {
+        locker_number: string;
+        location: string;
+        active_combo_index: number;
+        combo_1: string;
+        combo_2: string;
+        combo_3: string;
+        combo_4: string;
+        combo_5: string;
+      };
+      const assignment = db.prepare(`SELECT student_name, ucsd_email FROM assignments WHERE request_id = ?`).get(input.request_id) as {
+        student_name: string;
+        ucsd_email: string;
+      };
 
       return {
         locker_number: locker.locker_number,
+        location: locker.location,
+        combo_value: getActiveComboValue(locker),
         student_name: assignment.student_name,
+        ucsd_email: assignment.ucsd_email,
       };
     });
 
@@ -657,18 +690,32 @@ export async function assignLockerRecord(input: AssignLockerInput) {
 
       await client.query(`UPDATE lockers SET status = 'ASSIGNED', updated_at = $1 WHERE locker_id = $2`, [input.updated_at, input.locker_id]);
 
-      const lockerResult = await client.query<{ locker_number: string }>(
-        `SELECT locker_number FROM lockers WHERE locker_id = $1`,
+      const lockerResult = await client.query<{
+        locker_number: string;
+        location: string;
+        active_combo_index: number;
+        combo_1: string;
+        combo_2: string;
+        combo_3: string;
+        combo_4: string;
+        combo_5: string;
+      }>(
+        `SELECT locker_number, location, active_combo_index, combo_1, combo_2, combo_3, combo_4, combo_5 FROM lockers WHERE locker_id = $1`,
         [input.locker_id],
       );
-      const assignmentResult = await client.query<{ student_name: string }>(
-        `SELECT student_name FROM assignments WHERE request_id = $1`,
+      const assignmentResult = await client.query<{ student_name: string; ucsd_email: string }>(
+        `SELECT student_name, ucsd_email FROM assignments WHERE request_id = $1`,
         [input.request_id],
       );
+      const locker = lockerResult.rows[0];
+      const assignment = assignmentResult.rows[0];
 
       return {
-        locker_number: lockerResult.rows[0]?.locker_number ?? '',
-        student_name: assignmentResult.rows[0]?.student_name ?? '',
+        locker_number: locker?.locker_number ?? '',
+        location: locker?.location ?? '',
+        combo_value: locker ? getActiveComboValue(locker) : '',
+        student_name: assignment?.student_name ?? '',
+        ucsd_email: assignment?.ucsd_email ?? '',
       };
     });
   }

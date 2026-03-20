@@ -10,9 +10,17 @@ import { getLockerDetail } from '@/lib/db';
 import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
 import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
 
-export default async function LockerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LockerDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireAdmin();
   const { id } = await params;
+  const pageParams = await searchParams;
+  const emailWarning = typeof pageParams.emailWarning === 'string' ? pageParams.emailWarning : '';
   const data = await getLockerDetail(Number(id));
   if (!data) notFound();
 
@@ -38,6 +46,11 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
+            {emailWarning ? (
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+                {emailWarning}
+              </div>
+            ) : null}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>

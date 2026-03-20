@@ -7,7 +7,12 @@ import { ADMIN_COOKIE, requireAdmin } from '@/lib/auth';
 import { LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
 import { normalizeCsvHeader, parseCsv } from '@/lib/csv';
-import { LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, sendNewLockerRequestNotification } from '@/lib/notifications';
+import {
+  LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY,
+  LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY,
+  sendLockerAssignmentEmail,
+  sendNewLockerRequestNotification,
+} from '@/lib/notifications';
 import {
   normalizeLockerLocation,
   STANDARD_FEE_MODEL,
@@ -278,13 +283,15 @@ export async function assignLocker(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const paymentNotes = String(formData.get('payment_notes') || '').trim() || null;
+  const assignmentStartDate = String(formData.get('assignment_start_date') || '') || null;
+  const assignmentEndDate = String(formData.get('assignment_end_date') || '') || null;
   const now = new Date().toISOString();
 
   const assignment = await assignLockerRecord({
     request_id: requestId,
     locker_id: lockerId,
-    assignment_start_date: String(formData.get('assignment_start_date') || '') || null,
-    assignment_end_date: String(formData.get('assignment_end_date') || '') || null,
+    assignment_start_date: assignmentStartDate,
+    assignment_end_date: assignmentEndDate,
     fee_model: STANDARD_FEE_MODEL,
     amount_charged: STANDARD_TOTAL_COST,
     refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
@@ -293,36 +300,64 @@ export async function assignLocker(formData: FormData) {
   });
 
   await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
-  redirect(`/admin/lockers/${lockerId}`);
+
+  let destination = `/admin/lockers/${lockerId}`;
+
+  try {
+    if (assignmentStartDate && assignmentEndDate) {
+      const result = await sendLockerAssignmentEmail({
+        student_name: assignment.student_name,
+        ucsd_email: assignment.ucsd_email,
+        locker_number: assignment.locker_number,
+        location: assignment.location,
+        combo_value: assignment.combo_value,
+        assignment_start_date: assignmentStartDate,
+        assignment_end_date: assignmentEndDate,
+      });
+
+      if (!result.sent) {
+        console.warn(`Locker assignment email skipped: ${result.reason}`);
+        destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${result.reason}`);
+      } else if (!result.internalCopyRecipient) {
+        console.warn('Locker assignment email sent to the student without an internal BCC recipient configured.');
+        destination += '?emailWarning=' + encodeURIComponent('Student assignment email sent, but no internal BCC inbox is configured.');
+      }
+    }
+  } catch (error) {
+    console.error('Failed to send locker assignment email.', error);
+    destination += '?emailWarning=' + encodeURIComponent('Locker assignment saved, but the email could not be sent.');
+  }
+
+  redirect(destination);
 }
 
 export async function updateNotificationSettings(formData: FormData) {
   await requireAdmin();
 
-  const rawEmail = String(formData.get('notification_email') || '').trim();
-  const parsed = rawEmail ? z.string().email().safeParse(rawEmail) : { success: true as const };
+  const rawRequestEmail = String(formData.get('notification_email') || '').trim();
+  const rawAssignmentEmail = String(formData.get('assignment_notification_email') || '').trim();
+  const requestParsed = rawRequestEmail ? z.string().email().safeParse(rawRequestEmail) : { success: true as const };
+  const assignmentParsed = rawAssignmentEmail ? z.string().email().safeParse(rawAssignmentEmail) : { success: true as const };
 
-  if (rawEmail && !parsed.success) {
-    redirect('/admin?settingsError=' + encodeURIComponent('Enter a valid notification email address.'));
+  if ((rawRequestEmail && !requestParsed.success) || (rawAssignmentEmail && !assignmentParsed.success)) {
+    redirect('/admin?settingsError=' + encodeURIComponent('Enter valid notification email addresses.'));
   }
 
   const now = new Date().toISOString();
-  const settingValue = rawEmail || null;
+  const requestSettingValue = rawRequestEmail || null;
+  const assignmentSettingValue = rawAssignmentEmail || null;
 
-  await upsertAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, settingValue, now);
+  await upsertAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, requestSettingValue, now);
+  await upsertAppSetting(LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY, assignmentSettingValue, now);
   await createAuditLog(
     'UPDATE_SETTING',
-    settingValue
-      ? `Updated locker request notification email to ${settingValue}.`
-      : 'Cleared saved locker request notification email setting.',
+    `Updated notification settings. Request inbox: ${requestSettingValue ?? 'fallback/none'}. Assignment inbox: ${assignmentSettingValue ?? 'fallback/none'}.`,
   );
 
   redirect(
     '/admin?settingsSaved=' +
       encodeURIComponent(
-        settingValue
-          ? 'Request notification email updated.'
-          : 'Saved notification email cleared. Environment fallback will be used if configured.',
+        'Notification email settings updated.',
       ),
   );
 }
