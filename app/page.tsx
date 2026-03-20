@@ -57,18 +57,20 @@ export default function HomePage() {
                   priority
                 />
               </div>
-              <p className="mt-6 inline-flex rounded-full border border-brand-gold/40 bg-brand-gold/10 px-3 py-1 text-sm font-medium text-brand-navy">
+              <p className="mt-5 inline-flex rounded-full border border-brand-gold/40 bg-brand-gold/10 px-3 py-1 text-sm font-medium text-brand-navy">
                 Now accepting requests for Spring 2026
               </p>
-              <h1 className="mt-5 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl">
-                Request a Rady Locker in Minutes
+              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl">
+                Request a Rady Locker
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-                Submit a locker request for the current academic quarter and receive staff follow-up through your UCSD email.
-                Outdoor metal lockers are assigned based on availability and program eligibility.
+              <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                Submit a request for the current academic quarter. Eligible students receive staff follow-up through their UCSD email.
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-4">
-                <Link href="/request" className="rounded-xl bg-brand-navy px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#13233c]">
+              <div className="mt-7 flex flex-wrap items-center gap-4">
+                <Link
+                  href="/request"
+                  className="rounded-xl bg-brand-navy px-7 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#13233c]"
+                >
                   Request a Locker
                 </Link>
                 <Link href="/admin/login" className="text-sm font-semibold text-brand-blue transition hover:text-brand-navy">
@@ -102,9 +104,9 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">What Happens After You Submit?</p>
-                <ol className="mt-5 space-y-4 text-sm leading-7 text-slate-700">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">What Happens After You Submit?</p>
+              <ol className="mt-5 space-y-4 text-sm leading-7 text-slate-700">
                   <li>
                     <span className="font-semibold text-brand-navy">1. Confirmation is sent immediately.</span>
                     <span className="block text-slate-600">Your submission is received and routed into the staff review queue.</span>
@@ -126,10 +128,10 @@ export default function HomePage() {
         <section className="mx-auto max-w-7xl px-6 py-14">
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">How It Works</p>
-              <h2 className="mt-3 text-3xl font-semibold text-brand-navy">Clear, quarter-based request workflow</h2>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Request Process</p>
+              <h2 className="mt-3 text-3xl font-semibold text-brand-navy">Simple quarter-based review</h2>
               <p className="mt-4 text-sm leading-7 text-slate-600">
-                The request process is designed to be simple for students and easy for staff to manage.
+                Requests are reviewed by staff and assigned based on program eligibility and current availability.
               </p>
               <ol className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
                 {workflowSteps.map((step, index) => (
