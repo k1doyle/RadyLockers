@@ -185,11 +185,9 @@ export default async function AdminDashboard({
                 <thead>
                   <tr className="text-slate-500">
                     <th className="py-3 pr-4 font-medium">Locker</th>
-                    <th className="py-3 pr-4 font-medium">Location</th>
                     <th className="py-3 pr-4 font-medium">Status</th>
                     <th className="py-3 pr-4 font-medium">Current student</th>
-                    <th className="py-3 pr-4 font-medium">Quarter</th>
-                    <th className="py-3 pr-4 font-medium">Combo index</th>
+                    <th className="py-3 pr-4 font-medium">Return due</th>
                     <th className="py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -202,7 +200,6 @@ export default async function AdminDashboard({
                       return (
                         <tr key={locker.locker_id}>
                           <td className="py-4 pr-4 font-semibold text-brand-navy">{locker.locker_number}</td>
-                          <td className="py-4 pr-4 text-slate-600">{locker.location}</td>
                           <td className="py-4 pr-4"><StatusBadge status={locker.status} /></td>
                           <td className="py-4 pr-4 text-slate-600">{locker.latest_student_name ?? '—'}</td>
                           <td className="py-4 pr-4 text-slate-600">
@@ -221,10 +218,6 @@ export default async function AdminDashboard({
                               ) : null}
                             </div>
                           </td>
-                          <td className="py-4 pr-4 text-slate-600">
-                            {locker.active_combo_index}
-                            {locker.active_combo_index === 5 ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Review</span> : null}
-                          </td>
                           <td className="py-4">
                             <Link href={`/admin/lockers/${locker.locker_id}`} className="font-medium text-brand-blue">
                               View details
@@ -235,7 +228,7 @@ export default async function AdminDashboard({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                      <td colSpan={5} className="py-8 text-center text-sm text-slate-500">
                         No lockers matched the current filters.
                       </td>
                     </tr>
