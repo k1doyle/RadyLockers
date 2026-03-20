@@ -226,8 +226,11 @@ export default async function AdminDashboard({
                         <StatusBadge status={request.request_status} />
                       </div>
                       <p className="mt-3 text-sm text-slate-600">{request.program} · {request.requested_quarter}</p>
-                      <Link href={`/admin/request/${request.request_id}`} className="mt-3 inline-flex text-sm font-medium text-brand-blue">
-                        Review request
+                      <Link
+                        href={`/admin/request/${request.request_id}`}
+                        className="mt-4 inline-flex items-center rounded-lg bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#13233c]"
+                      >
+                        Review Request
                       </Link>
                     </div>
                   ))
@@ -339,7 +342,7 @@ export default async function AdminDashboard({
                   {imported ? `Imported ${imported} lockers successfully.` : importError}
                 </div>
               ) : null}
-              <form action={importLockers} encType="multipart/form-data" className="mt-5 space-y-4">
+              <form action={importLockers} className="mt-5 space-y-4">
                 <input type="file" name="csv_file" accept=".csv,text/csv" className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:font-medium file:text-brand-navy" />
                 <textarea
                   name="csv_text"
