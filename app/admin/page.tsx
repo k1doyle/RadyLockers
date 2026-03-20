@@ -342,7 +342,7 @@ export default async function AdminDashboard({
                   {imported ? `Imported ${imported} lockers successfully.` : importError}
                 </div>
               ) : null}
-              <form action={importLockers} encType="multipart/form-data" className="mt-5 space-y-4">
+              <form action={importLockers} className="mt-5 space-y-4">
                 <input type="file" name="csv_file" accept=".csv,text/csv" className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:font-medium file:text-brand-navy" />
                 <textarea
                   name="csv_text"
