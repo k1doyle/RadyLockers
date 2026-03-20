@@ -112,11 +112,29 @@ const configuredDatabaseUrl = getConfiguredDatabaseUrl();
 const databaseMode = getDatabaseMode(configuredDatabaseUrl);
 
 let sqliteDb: Database.Database | null = null;
+const lockerNumberCollator = new Intl.Collator('en-US', {
+  numeric: true,
+  sensitivity: 'base',
+});
 
 function unsupportedDatabaseError() {
   return new Error(
     `Database access is unavailable because DATABASE_URL is configured as ${describeConfiguredDatabase(configuredDatabaseUrl)}.`,
   );
+}
+
+function compareLockerNumbers(a: string, b: string) {
+  const comparison = lockerNumberCollator.compare(a, b);
+  if (comparison !== 0) return comparison;
+  return a.localeCompare(b, 'en-US');
+}
+
+function sortLockersNaturally<T extends { locker_number: string; location: string }>(lockers: T[]) {
+  return [...lockers].sort((a, b) => {
+    const lockerComparison = compareLockerNumbers(a.locker_number, b.locker_number);
+    if (lockerComparison !== 0) return lockerComparison;
+    return a.location.localeCompare(b.location, 'en-US');
+  });
 }
 
 function normalizeTimestamp(value: unknown) {
@@ -893,7 +911,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
     const locations = db.prepare(`SELECT DISTINCT location FROM lockers ORDER BY location ASC`).all() as Record<string, unknown>[];
 
     return {
-      lockers: lockers.map(mapDashboardLockerRow),
+      lockers: sortLockersNaturally(lockers.map(mapDashboardLockerRow)),
       requests: requests.map(mapAssignmentRow),
       metrics: metrics.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locations.map((entry) => ({ location: String(entry.location) })),
@@ -973,7 +991,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
     ]);
 
     return {
-      lockers: lockersResult.rows.map((row) => mapDashboardLockerRow(row as Record<string, unknown>)),
+      lockers: sortLockersNaturally(lockersResult.rows.map((row) => mapDashboardLockerRow(row as Record<string, unknown>))),
       requests: requestsResult.rows.map((row) => mapAssignmentRow(row as Record<string, unknown>)),
       metrics: metricsResult.rows.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locationsResult.rows.map((entry) => ({ location: String(entry.location) })),
@@ -1043,14 +1061,14 @@ export async function getAvailableLockers(): Promise<LockerRow[]> {
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
     const rows = db.prepare(`SELECT * FROM lockers WHERE status IN ('AVAILABLE','RETURNED') ORDER BY location ASC, locker_number ASC`).all() as Record<string, unknown>[];
-    return rows.map(mapLockerRow);
+    return sortLockersNaturally(rows.map(mapLockerRow));
   }
 
   if (databaseMode === 'postgres') {
     const result = await postgresQuery<QueryResultRow>(
       `SELECT * FROM lockers WHERE status IN ('AVAILABLE','RETURNED') ORDER BY location ASC, locker_number ASC`,
     );
-    return result.rows.map((row) => mapLockerRow(row as Record<string, unknown>));
+    return sortLockersNaturally(result.rows.map((row) => mapLockerRow(row as Record<string, unknown>)));
   }
 
   throw unsupportedDatabaseError();
@@ -1116,12 +1134,12 @@ export async function getAllLockers(): Promise<LockerRow[]> {
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
     const rows = db.prepare(`SELECT * FROM lockers ORDER BY location ASC, locker_number ASC`).all() as Record<string, unknown>[];
-    return rows.map(mapLockerRow);
+    return sortLockersNaturally(rows.map(mapLockerRow));
   }
 
   if (databaseMode === 'postgres') {
     const result = await postgresQuery<QueryResultRow>(`SELECT * FROM lockers ORDER BY location ASC, locker_number ASC`);
-    return result.rows.map((row) => mapLockerRow(row as Record<string, unknown>));
+    return sortLockersNaturally(result.rows.map((row) => mapLockerRow(row as Record<string, unknown>)));
   }
 
   throw unsupportedDatabaseError();
