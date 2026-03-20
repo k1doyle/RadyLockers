@@ -161,7 +161,7 @@ export default async function AdminDashboard({
               </div>
             </div>
             <form className="mt-6 grid gap-4 md:grid-cols-3">
-              <input name="search" defaultValue={filterSearch} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+<input name="search" defaultValue={filterSearch} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
               <select name="status" defaultValue={filterStatus} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
                 <option value="">All statuses</option>
                 {lockerStatuses.map((status) => (
