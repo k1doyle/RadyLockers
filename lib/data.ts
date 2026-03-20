@@ -34,6 +34,7 @@ export type AssignmentRow = {
   pid_or_student_id: string;
   program: string;
   requested_quarter: string;
+  requested_rental_period: string | null;
   request_status: RequestStatus;
   assigned_locker_id: number | null;
   assignment_start_date: string | null;

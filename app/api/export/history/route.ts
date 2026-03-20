@@ -1,7 +1,7 @@
 import { getHistoryExport } from '@/lib/db';
 
 export async function GET() {
-  const rows = getHistoryExport() as Array<Record<string, string | number | null>>;
+  const rows = await getHistoryExport();
   const header = [
     'request_id',
     'student_name',

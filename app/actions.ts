@@ -7,6 +7,17 @@ import { ADMIN_COOKIE } from '@/lib/auth';
 import { FEE_MODELS, LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
 import { areRequestSubmissionsAvailable, REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE } from '@/lib/request-submissions';
+import {
+  advanceComboRecord,
+  assignLockerRecord,
+  closeAssignmentRecord,
+  completeReturnRecord,
+  createAssignmentRequest,
+  createAuditLog,
+  createLockerRecord,
+  markPendingReturnRecord,
+  updateLockerRecord,
+} from '@/lib/db';
 
 const requestSchema = z.object({
   student_name: z.string().min(2),
@@ -33,25 +44,23 @@ export async function submitLockerRequest(formData: FormData) {
   const data = parsed.data;
   const now = new Date().toISOString();
   const renewalRequested = data.requested_rental_period === 'One Academic Quarter, with possible renewal request' ? 1 : 0;
-  const { getDb } = await import('@/lib/db');
-  const db = getDb();
 
-  db.prepare(`
-    INSERT INTO assignments (
-      student_name, ucsd_email, pid_or_student_id, program, requested_quarter, request_status,
-      renewal_requested, notes, fee_model, amount_charged, refundable_amount, refund_status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'SUBMITTED', ?, ?, 'DEPOSIT_50_WITH_25_REFUND', 50, 25, 'PENDING', ?, ?)
-  `).run(
-    data.student_name,
-    data.ucsd_email,
-    data.pid_or_student_id,
-    data.program,
-    data.requested_quarter,
-    renewalRequested,
-    data.reason || null,
-    now,
-    now,
-  );
+  await createAssignmentRequest({
+    student_name: data.student_name,
+    ucsd_email: data.ucsd_email,
+    pid_or_student_id: data.pid_or_student_id,
+    program: data.program,
+    requested_quarter: data.requested_quarter,
+    requested_rental_period: data.requested_rental_period,
+    renewal_requested: renewalRequested,
+    notes: data.reason || null,
+    fee_model: 'DEPOSIT_50_WITH_25_REFUND',
+    amount_charged: 50,
+    refundable_amount: 25,
+    refund_status: 'PENDING',
+    created_at: now,
+    updated_at: now,
+  });
 
   redirect('/request/confirmation');
 }
@@ -84,29 +93,22 @@ export async function createLocker(formData: FormData) {
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
   if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin');
-  const { getDb } = await import('@/lib/db');
-  const db = getDb();
 
-  db.prepare(`
-    INSERT INTO lockers (
-      locker_number, location, locker_type, status, combo_1, combo_2, combo_3, combo_4, combo_5,
-      active_combo_index, notes, disabled_reason, created_at, updated_at
-    ) VALUES (?, ?, 'OUTDOOR_METAL_COMBINATION', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    String(formData.get('locker_number') || '').trim(),
-    String(formData.get('location') || '').trim(),
+  await createLockerRecord({
+    locker_number: String(formData.get('locker_number') || '').trim(),
+    location: String(formData.get('location') || '').trim(),
     status,
-    String(formData.get('combo_1') || '').trim(),
-    String(formData.get('combo_2') || '').trim(),
-    String(formData.get('combo_3') || '').trim(),
-    String(formData.get('combo_4') || '').trim(),
-    String(formData.get('combo_5') || '').trim(),
-    Number(formData.get('active_combo_index') || 1),
-    String(formData.get('notes') || '').trim() || null,
-    String(formData.get('disabled_reason') || '').trim() || null,
-    now,
-    now,
-  );
+    combo_1: String(formData.get('combo_1') || '').trim(),
+    combo_2: String(formData.get('combo_2') || '').trim(),
+    combo_3: String(formData.get('combo_3') || '').trim(),
+    combo_4: String(formData.get('combo_4') || '').trim(),
+    combo_5: String(formData.get('combo_5') || '').trim(),
+    active_combo_index: Number(formData.get('active_combo_index') || 1),
+    notes: String(formData.get('notes') || '').trim() || null,
+    disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
+    created_at: now,
+    updated_at: now,
+  });
 
   redirect('/admin');
 }
@@ -115,32 +117,22 @@ export async function updateLocker(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
-
-  db.prepare(`
-    UPDATE lockers
-    SET locker_number = ?, location = ?, status = ?, combo_1 = ?, combo_2 = ?, combo_3 = ?, combo_4 = ?, combo_5 = ?,
-        active_combo_index = ?, notes = ?, disabled_reason = ?, updated_at = ?
-    WHERE locker_id = ?
-  `).run(
-    String(formData.get('locker_number') || '').trim(),
-    String(formData.get('location') || '').trim(),
+  const lockerNumber = await updateLockerRecord({
+    locker_id: lockerId,
+    locker_number: String(formData.get('locker_number') || '').trim(),
+    location: String(formData.get('location') || '').trim(),
     status,
-    String(formData.get('combo_1') || '').trim(),
-    String(formData.get('combo_2') || '').trim(),
-    String(formData.get('combo_3') || '').trim(),
-    String(formData.get('combo_4') || '').trim(),
-    String(formData.get('combo_5') || '').trim(),
-    Number(formData.get('active_combo_index') || 1),
-    String(formData.get('notes') || '').trim() || null,
-    String(formData.get('disabled_reason') || '').trim() || null,
-    now,
-    lockerId,
-  );
-
-  const locker = db.prepare(`SELECT locker_number FROM lockers WHERE locker_id = ?`).get(lockerId) as { locker_number: string };
-  createAuditLog('UPDATE_LOCKER', `Updated locker ${locker.locker_number}.`, lockerId);
+    combo_1: String(formData.get('combo_1') || '').trim(),
+    combo_2: String(formData.get('combo_2') || '').trim(),
+    combo_3: String(formData.get('combo_3') || '').trim(),
+    combo_4: String(formData.get('combo_4') || '').trim(),
+    combo_5: String(formData.get('combo_5') || '').trim(),
+    active_combo_index: Number(formData.get('active_combo_index') || 1),
+    notes: String(formData.get('notes') || '').trim() || null,
+    disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
+    updated_at: now,
+  });
+  await createAuditLog('UPDATE_LOCKER', `Updated locker ${lockerNumber}.`, lockerId);
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -152,34 +144,22 @@ export async function assignLocker(formData: FormData) {
   const refundableAmount = Number(formData.get('refundable_amount') || 0);
   const paymentNotes = String(formData.get('payment_notes') || '').trim() || null;
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
 
   if (!FEE_MODELS.includes(feeModel as never)) redirect(`/admin/request/${requestId}`);
 
-  db.prepare(`
-    UPDATE assignments
-    SET request_status = 'ASSIGNED', assigned_locker_id = ?, assignment_start_date = ?, assignment_end_date = ?,
-        fee_model = ?, amount_charged = ?, refundable_amount = ?, refund_status = ?, payment_notes = ?, updated_at = ?
-    WHERE request_id = ?
-  `).run(
-    lockerId,
-    String(formData.get('assignment_start_date') || '') || null,
-    String(formData.get('assignment_end_date') || '') || null,
-    feeModel,
-    amountCharged,
-    refundableAmount,
-    refundableAmount > 0 ? 'PENDING' : 'NOT_APPLICABLE',
-    paymentNotes,
-    now,
-    requestId,
-  );
+  const assignment = await assignLockerRecord({
+    request_id: requestId,
+    locker_id: lockerId,
+    assignment_start_date: String(formData.get('assignment_start_date') || '') || null,
+    assignment_end_date: String(formData.get('assignment_end_date') || '') || null,
+    fee_model: feeModel,
+    amount_charged: amountCharged,
+    refundable_amount: refundableAmount,
+    payment_notes: paymentNotes,
+    updated_at: now,
+  });
 
-  db.prepare(`UPDATE lockers SET status = 'ASSIGNED', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
-
-  const locker = db.prepare(`SELECT locker_number FROM lockers WHERE locker_id = ?`).get(lockerId) as { locker_number: string };
-  const assignment = db.prepare(`SELECT student_name FROM assignments WHERE request_id = ?`).get(requestId) as { student_name: string };
-  createAuditLog('ASSIGN_LOCKER', `Assigned locker ${locker.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
+  await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -187,11 +167,9 @@ export async function markPendingReturn(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
 
-  db.prepare(`UPDATE lockers SET status = 'PENDING_RETURN', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
-  createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
+  await markPendingReturnRecord(requestId, lockerId, now);
+  await createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -201,53 +179,33 @@ export async function completeReturn(formData: FormData) {
   const refundStatus = String(formData.get('refund_status') || 'NOT_APPLICABLE');
   const shouldAdvance = formData.get('advance_combo') === 'on';
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
 
   if (!REFUND_STATUSES.includes(refundStatus as never)) redirect(`/admin/lockers/${lockerId}`);
 
-  const locker = db.prepare(`SELECT locker_number, active_combo_index FROM lockers WHERE locker_id = ?`).get(lockerId) as {
-    locker_number: string;
-    active_combo_index: number;
-  };
-  const nextIndex = shouldAdvance ? Math.min(locker.active_combo_index + 1, 5) : locker.active_combo_index;
+  const result = await completeReturnRecord({
+    request_id: requestId,
+    locker_id: lockerId,
+    return_verified_by: String(formData.get('return_verified_by') || '').trim(),
+    refund_status: refundStatus,
+    should_advance: shouldAdvance,
+    now,
+  });
 
-  db.prepare(`
-    UPDATE assignments
-    SET request_status = 'CLOSED', returned_date = ?, return_verified_by = ?, refund_status = ?, refund_date = ?, updated_at = ?
-    WHERE request_id = ?
-  `).run(
-    now,
-    String(formData.get('return_verified_by') || '').trim(),
-    refundStatus,
-    refundStatus === 'COMPLETED' ? now : null,
-    now,
+  await createAuditLog(
+    'COMPLETE_RETURN',
+    `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${result.locker_number}.`,
+    lockerId,
     requestId,
   );
-
-  db.prepare(`UPDATE lockers SET status = 'RETURNED', active_combo_index = ?, updated_at = ? WHERE locker_id = ?`).run(nextIndex, now, lockerId);
-  createAuditLog('COMPLETE_RETURN', `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${locker.locker_number}.`, lockerId, requestId);
   redirect(`/admin/lockers/${lockerId}`);
 }
 
 export async function advanceCombo(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
-  const locker = db.prepare(`SELECT active_combo_index, status FROM lockers WHERE locker_id = ?`).get(lockerId) as {
-    active_combo_index: number;
-    status: string;
-  };
-  const nextIndex = Math.min(locker.active_combo_index + 1, 5);
-  db.prepare(`UPDATE lockers SET active_combo_index = ?, status = ?, updated_at = ? WHERE locker_id = ?`).run(
-    nextIndex,
-    locker.status === 'RETURNED' ? 'AVAILABLE' : locker.status,
-    now,
-    lockerId,
-  );
+  const result = await advanceComboRecord(lockerId, now);
 
-  createAuditLog('ADVANCE_COMBO', `Advanced combo position from ${locker.active_combo_index} to ${nextIndex}.`, lockerId);
+  await createAuditLog('ADVANCE_COMBO', `Advanced combo position from ${result.previous_index} to ${result.next_index}.`, lockerId);
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -255,11 +213,8 @@ export async function closeAssignment(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-  const { createAuditLog, getDb } = await import('@/lib/db');
-  const db = getDb();
 
-  db.prepare(`UPDATE assignments SET request_status = 'CLOSED', updated_at = ? WHERE request_id = ?`).run(now, requestId);
-  db.prepare(`UPDATE lockers SET status = 'AVAILABLE', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
-  createAuditLog('CLOSE_ASSIGNMENT', 'Closed assignment and made locker available.', lockerId, requestId);
+  await closeAssignmentRecord(requestId, lockerId, now);
+  await createAuditLog('CLOSE_ASSIGNMENT', 'Closed assignment and made locker available.', lockerId, requestId);
   redirect(`/admin/lockers/${lockerId}`);
 }

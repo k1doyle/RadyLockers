@@ -1,7 +1,7 @@
 import { getCurrentAssignmentsExport } from '@/lib/db';
 
 export async function GET() {
-  const rows = getCurrentAssignmentsExport() as Array<Record<string, string | number | null>>;
+  const rows = await getCurrentAssignmentsExport();
   const header = [
     'request_id',
     'student_name',

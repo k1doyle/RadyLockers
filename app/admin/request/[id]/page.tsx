@@ -10,10 +10,10 @@ import { formatStatus } from '@/lib/utils';
 export default async function RequestReviewPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const request = getRequestDetail(Number(id));
+  const request = await getRequestDetail(Number(id));
   if (!request) notFound();
 
-  const availableLockers = getAvailableLockers();
+  const availableLockers = await getAvailableLockers();
 
   return (
     <AdminShell>
@@ -40,6 +40,10 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                 <div>
                   <dt className="font-medium text-slate-500">Requested quarter</dt>
                   <dd>{request.requested_quarter}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-slate-500">Requested rental period</dt>
+                  <dd>{request.requested_rental_period ?? 'Not provided'}</dd>
                 </div>
                 <div>
                   <dt className="font-medium text-slate-500">Renewal requested</dt>
