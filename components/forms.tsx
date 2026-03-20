@@ -1,4 +1,4 @@
-import { quarters, programs } from '@/lib/constants';
+import { quarters, programs, rentalPeriods } from '@/lib/constants';
 
 const inputClassName =
   'mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20';
@@ -54,7 +54,7 @@ export function SelectField({
 }: {
   name: string;
   label: string;
-  options: string[];
+  options: readonly string[];
   required?: boolean;
   defaultValue?: string | null;
 }) {
@@ -79,4 +79,8 @@ export function ProgramSelect({ defaultValue }: { defaultValue?: string | null }
 
 export function QuarterSelect({ defaultValue }: { defaultValue?: string | null }) {
   return <SelectField name="requested_quarter" label="Requested quarter" options={quarters} required defaultValue={defaultValue} />;
+}
+
+export function RentalPeriodSelect({ defaultValue }: { defaultValue?: string | null }) {
+  return <SelectField name="requested_rental_period" label="Requested Rental Period" options={rentalPeriods} required defaultValue={defaultValue} />;
 }

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ADMIN_COOKIE } from '@/lib/auth';
 import { createAuditLog, db } from '@/lib/db';
 import { FEE_MODELS, LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
+import { rentalPeriods } from '@/lib/constants';
 
 const requestSchema = z.object({
   student_name: z.string().min(2),
@@ -13,6 +14,7 @@ const requestSchema = z.object({
   pid_or_student_id: z.string().min(6),
   program: z.string().min(2),
   requested_quarter: z.string().min(2),
+  requested_rental_period: z.enum(rentalPeriods),
   reason: z.string().optional(),
   acknowledged_terms: z.literal('on'),
 });
@@ -26,18 +28,20 @@ export async function submitLockerRequest(formData: FormData) {
 
   const data = parsed.data;
   const now = new Date().toISOString();
+  const renewalRequested = data.requested_rental_period === 'One Academic Quarter, with possible renewal request' ? 1 : 0;
 
   db.prepare(`
     INSERT INTO assignments (
       student_name, ucsd_email, pid_or_student_id, program, requested_quarter, request_status,
-      notes, fee_model, amount_charged, refundable_amount, refund_status, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, 'SUBMITTED', ?, 'FLAT_25_NON_REFUNDABLE', 25, 0, 'NOT_APPLICABLE', ?, ?)
+      renewal_requested, notes, fee_model, amount_charged, refundable_amount, refund_status, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, 'SUBMITTED', ?, ?, 'DEPOSIT_50_WITH_25_REFUND', 50, 25, 'PENDING', ?, ?)
   `).run(
     data.student_name,
     data.ucsd_email,
     data.pid_or_student_id,
     data.program,
     data.requested_quarter,
+    renewalRequested,
     data.reason || null,
     now,
     now,
