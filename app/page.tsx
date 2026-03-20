@@ -59,20 +59,20 @@ export default function HomePage() {
             </div>
 
             <div className="space-y-5">
-              <div className="rounded-3xl border border-slate-200 bg-brand-mist p-6 shadow-sm">
+              <div className="rounded-3xl border border-slate-200 bg-brand-mist p-4 shadow-sm">
                 <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Pricing</p>
-                <div className="mt-5 grid gap-3 lg:grid-cols-1">
-                  <div className="rounded-2xl border border-white/70 bg-white px-4 py-4">
+                <div className="mt-4 grid gap-2 lg:grid-cols-1">
+                  <div className="rounded-2xl border border-white/70 bg-white px-4 py-3">
                     <div>
                       <p className="text-lg font-semibold text-brand-navy">$25 refundable deposit</p>
                       <p className="mt-1 text-sm text-slate-600">Returned after verified locker check-out</p>
                     </div>
-                    <div className="mt-4 border-t border-slate-200 pt-4">
+                    <div className="mt-3 border-t border-slate-200 pt-3">
                       <p className="text-lg font-semibold text-brand-navy">$25 rental fee</p>
                       <p className="mt-1 text-sm text-slate-600">Non-refundable use fee for the quarter</p>
                     </div>
                   </div>
-                  <div className="rounded-2xl border border-brand-blue/30 bg-brand-blue/15 px-4 py-4">
+                  <div className="rounded-2xl border border-brand-blue/30 bg-brand-blue/15 px-4 py-3">
                     <p className="text-sm font-medium uppercase tracking-[0.15em] text-brand-blue">Total due</p>
                     <p className="mt-1 text-2xl font-semibold text-brand-navy">$50</p>
                     <p className="mt-1 text-sm text-slate-600">Includes the refundable deposit and quarterly rental fee</p>
