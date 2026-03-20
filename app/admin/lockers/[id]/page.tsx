@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { lockerStatuses } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
 import { getLockerDetail } from '@/lib/db';
+import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
 import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
 
 export default async function LockerDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,7 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
   const { locker, assignments, auditLogs } = data;
   const activeAssignment = assignments.find((assignment) => assignment.request_status === 'ASSIGNED');
   const latestAssignment = assignments[0];
+  const locationOptions = Array.from(new Set([STANDARD_LOCKER_LOCATION, locker.location].filter(Boolean)));
 
   return (
     <AdminShell>
@@ -50,7 +52,14 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
               <form action={updateLocker} className="mt-6 grid gap-4 md:grid-cols-2">
                 <input type="hidden" name="locker_id" value={locker.locker_id} />
                 <TextField name="locker_number" label="Locker number" required defaultValue={locker.locker_number} />
-                <TextField name="location" label="Location" required defaultValue={locker.location} />
+                <label className="block text-sm font-medium text-slate-700">
+                  Location
+                  <select name="location" defaultValue={locker.location || STANDARD_LOCKER_LOCATION} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                    {locationOptions.map((location) => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
+                  </select>
+                </label>
                 <label className="block text-sm font-medium text-slate-700">
                   Status
                   <select name="status" defaultValue={locker.status} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">

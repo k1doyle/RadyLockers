@@ -14,6 +14,7 @@ This first release includes:
 - Assignment workflow for matching requests to lockers
 - Return workflow for verifying returns and advancing combo positions
 - CSV exports for current assignments and assignment history
+- Internal email notifications for new locker requests
 - SQLite schema and seed data for demo/testing
 
 This version intentionally does **not** include:
@@ -90,12 +91,13 @@ The app stores three relational tables:
 - `lockers`
 - `assignments`
 - `audit_logs`
+- `app_settings`
 
 ## Demo seed data
 
 Seed data includes:
 
-- Outdoor lockers in two locations: `Rady Courtyard East` and `Rady Patio West`
+- Outdoor lockers at the standard v1 location between the IT offices and MPR2
 - Sample statuses including Available, Assigned, Pending Return, and Disabled
 - Sample requests and assignment history
 - A locker at active combination index 5 to demonstrate the review warning state
@@ -122,10 +124,21 @@ Admins can:
 - Review incoming requests from the dashboard
 - Assign an available locker
 - Record assignment dates
-- Choose between two fee models:
-  - `FLAT_25_NON_REFUNDABLE`
-  - `DEPOSIT_50_WITH_25_REFUND`
-- Track amount charged, refundable amount, and payment notes
+- Use the standard pricing model of `$50 total`, including a `$25 refundable deposit`
+- Track payment notes and refund status
+
+### Inventory setup
+
+- The current locker bank is the outdoor metal lockers between the IT offices and MPR2
+- Manual locker creation defaults to that location automatically
+- Bulk CSV import accepts a `location` column, but blanks default to the same standard location
+
+### Request notifications
+
+- New locker requests can send an internal notification email
+- The recipient can be saved in the admin dashboard
+- If no admin-saved recipient is present, the app falls back to `LOCKER_REQUEST_NOTIFICATION_EMAIL`
+- SMTP delivery uses the standard environment variables below
 
 ### Return flow
 
@@ -149,6 +162,27 @@ The admin dashboard includes links for:
 For version 1, admin access uses a shared password stored in `ADMIN_PASSWORD`. After login, the app stores a secure HTTP-only session cookie for admin pages.
 
 This is intentionally lightweight for internal use and local evaluation. A future version could replace it with SSO or role-based authentication.
+
+## Email notification setup
+
+Set these environment variables anywhere the app sends email:
+
+```env
+LOCKER_REQUEST_NOTIFICATION_EMAIL="studentaffairs@ucsd.edu"
+SMTP_HOST="smtp.example.com"
+SMTP_PORT="587"
+SMTP_USER="smtp-user"
+SMTP_PASS="smtp-password"
+SMTP_FROM="Rady Lockers <no-reply@example.com>"
+SMTP_SECURE="false"
+```
+
+Notes:
+
+- `LOCKER_REQUEST_NOTIFICATION_EMAIL` is the fallback recipient when no admin-saved recipient exists
+- `SMTP_FROM` must be a sender address allowed by your SMTP provider
+- `SMTP_SECURE` should usually be `true` for port `465` and `false` for port `587`
+- Request submissions still save if email delivery is not configured or if sending fails; the app logs the email issue instead of discarding the request
 
 ## Future improvements
 
