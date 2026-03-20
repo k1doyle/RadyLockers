@@ -78,7 +78,13 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                 </label>
                 <label className="block font-medium">
                   Assignment start date
-                  <input type="date" name="assignment_start_date" required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                <input 
+                  type="date" 
+                  name="assignment_start_date"
+                  defaultValue={new Date().toLocaleDateString('en-CA')}
+                  required 
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" 
+                  />
                 </label>
                 <label className="block font-medium">
                   Assignment end date
