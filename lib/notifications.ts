@@ -7,6 +7,16 @@ import {
 } from '@/lib/policy';
 
 export const LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY = 'locker_request_notification_email';
+export const LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY = 'locker_assignment_notification_email';
+
+type NotificationConfig = {
+  savedRecipient: string | null;
+  envRecipient: string | null;
+  effectiveRecipient: string | null;
+  source: 'admin' | 'environment' | 'request-setting' | 'request-environment' | 'none';
+  deliveryConfigured: boolean;
+  fromAddress: string | null;
+};
 
 type NewLockerRequestNotificationInput = {
   student_name: string;
@@ -19,13 +29,14 @@ type NewLockerRequestNotificationInput = {
   submitted_at: string;
 };
 
-type NotificationConfig = {
-  savedRecipient: string | null;
-  envRecipient: string | null;
-  effectiveRecipient: string | null;
-  source: 'admin' | 'environment' | 'none';
-  deliveryConfigured: boolean;
-  fromAddress: string | null;
+type LockerAssignmentEmailInput = {
+  student_name: string;
+  ucsd_email: string;
+  locker_number: string;
+  location: string;
+  combo_value: string;
+  assignment_start_date: string;
+  assignment_end_date: string;
 };
 
 function getEnvValue(name: string) {
@@ -55,6 +66,35 @@ function getSmtpSettings() {
   };
 }
 
+function createTransport() {
+  const smtp = getSmtpSettings();
+
+  return nodemailer.createTransport({
+    host: smtp.host!,
+    port: smtp.port,
+    secure: smtp.secure,
+    auth: {
+      user: smtp.user!,
+      pass: smtp.pass!,
+    },
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+    timeZone: 'America/Los_Angeles',
+  }).format(new Date(value));
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'long',
+    timeZone: 'America/Los_Angeles',
+  }).format(new Date(value));
+}
+
 export async function getLockerRequestNotificationConfig(): Promise<NotificationConfig> {
   const savedRecipient = await getAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY);
   const envRecipient = getEnvValue('LOCKER_REQUEST_NOTIFICATION_EMAIL');
@@ -71,12 +111,35 @@ export async function getLockerRequestNotificationConfig(): Promise<Notification
   };
 }
 
-function formatSubmittedTimestamp(value: string) {
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-    timeZone: 'America/Los_Angeles',
-  }).format(new Date(value));
+export async function getLockerAssignmentNotificationConfig(): Promise<NotificationConfig> {
+  const savedRecipient = await getAppSetting(LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY);
+  const envRecipient = getEnvValue('LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL');
+  const requestConfig = await getLockerRequestNotificationConfig();
+  const { from, deliveryConfigured } = getSmtpSettings();
+
+  const effectiveRecipient =
+    savedRecipient ||
+    envRecipient ||
+    requestConfig.savedRecipient ||
+    requestConfig.envRecipient ||
+    null;
+
+  return {
+    savedRecipient,
+    envRecipient,
+    effectiveRecipient,
+    source: savedRecipient
+      ? 'admin'
+      : envRecipient
+        ? 'environment'
+        : requestConfig.savedRecipient
+          ? 'request-setting'
+          : requestConfig.envRecipient
+            ? 'request-environment'
+            : 'none',
+    deliveryConfigured,
+    fromAddress: from,
+  };
 }
 
 export async function sendNewLockerRequestNotification(input: NewLockerRequestNotificationInput) {
@@ -90,18 +153,7 @@ export async function sendNewLockerRequestNotification(input: NewLockerRequestNo
     return { sent: false, reason: 'SMTP delivery is not configured.' };
   }
 
-  const smtp = getSmtpSettings();
-  const transporter = nodemailer.createTransport({
-    host: smtp.host!,
-    port: smtp.port,
-    secure: smtp.secure,
-    auth: {
-      user: smtp.user!,
-      pass: smtp.pass!,
-    },
-  });
-
-  const submittedAt = formatSubmittedTimestamp(input.submitted_at);
+  const submittedAt = formatDateTime(input.submitted_at);
   const text = [
     'A new Rady locker request has been submitted.',
     '',
@@ -116,7 +168,7 @@ export async function sendNewLockerRequestNotification(input: NewLockerRequestNo
     `Notes: ${input.notes || 'None provided'}`,
   ].join('\n');
 
-  await transporter.sendMail({
+  await createTransport().sendMail({
     from: config.fromAddress,
     to: config.effectiveRecipient,
     replyTo: input.ucsd_email,
@@ -125,4 +177,43 @@ export async function sendNewLockerRequestNotification(input: NewLockerRequestNo
   });
 
   return { sent: true };
+}
+
+export async function sendLockerAssignmentEmail(input: LockerAssignmentEmailInput) {
+  const assignmentConfig = await getLockerAssignmentNotificationConfig();
+  const { fromAddress, deliveryConfigured } = assignmentConfig;
+
+  if (!deliveryConfigured || !fromAddress) {
+    return { sent: false, reason: 'SMTP delivery is not configured.' };
+  }
+
+  const text = [
+    `Hello ${input.student_name},`,
+    '',
+    'Your Rady locker request has been approved. Your locker assignment details are below.',
+    '',
+    `Locker number: ${input.locker_number}`,
+    `Location: ${input.location}`,
+    `Combination: ${input.combo_value}`,
+    `Assignment start date: ${formatDate(input.assignment_start_date)}`,
+    `Assignment end date: ${formatDate(input.assignment_end_date)}`,
+    '',
+    `Please empty and return the locker by the posted end-of-quarter deadline. The $${STANDARD_REFUNDABLE_DEPOSIT} deposit is refunded after staff verifies the locker is empty and returned properly.`,
+    '',
+    'If you have questions, reply to this email or contact Rady Student Affairs.',
+  ].join('\n');
+
+  await createTransport().sendMail({
+    from: fromAddress,
+    to: input.ucsd_email,
+    bcc: assignmentConfig.effectiveRecipient || undefined,
+    replyTo: assignmentConfig.effectiveRecipient || fromAddress,
+    subject: `Your Rady locker assignment: Locker ${input.locker_number}`,
+    text,
+  });
+
+  return {
+    sent: true,
+    internalCopyRecipient: assignmentConfig.effectiveRecipient,
+  };
 }

@@ -15,6 +15,7 @@ This first release includes:
 - Return workflow for verifying returns and advancing combo positions
 - CSV exports for current assignments and assignment history
 - Internal email notifications for new locker requests
+- Student assignment emails with optional internal BCC copy
 - SQLite schema and seed data for demo/testing
 
 This version intentionally does **not** include:
@@ -140,6 +141,13 @@ Admins can:
 - If no admin-saved recipient is present, the app falls back to `LOCKER_REQUEST_NOTIFICATION_EMAIL`
 - SMTP delivery uses the standard environment variables below
 
+### Assignment emails
+
+- When a locker is assigned, the student can receive an assignment email automatically
+- The same email can be BCCed to an internal inbox
+- The admin dashboard can store a separate internal inbox for assignment copies
+- If no separate assignment inbox is saved, the app falls back to `LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL` and then to the request notification inbox
+
 ### Return flow
 
 When a locker is returned:
@@ -169,6 +177,7 @@ Set these environment variables anywhere the app sends email:
 
 ```env
 LOCKER_REQUEST_NOTIFICATION_EMAIL="studentaffairs@ucsd.edu"
+LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL="gsa@ucsd.edu"
 SMTP_HOST="smtp.example.com"
 SMTP_PORT="587"
 SMTP_USER="smtp-user"
@@ -180,6 +189,7 @@ SMTP_SECURE="false"
 Notes:
 
 - `LOCKER_REQUEST_NOTIFICATION_EMAIL` is the fallback recipient when no admin-saved recipient exists
+- `LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL` is the optional fallback internal inbox for assignment email BCC copies
 - `SMTP_FROM` must be a sender address allowed by your SMTP provider
 - `SMTP_SECURE` should usually be `true` for port `465` and `false` for port `587`
 - Request submissions still save if email delivery is not configured or if sending fails; the app logs the email issue instead of discarding the request
