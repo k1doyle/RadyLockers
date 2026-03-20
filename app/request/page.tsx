@@ -42,7 +42,7 @@ export default async function RequestPage({
               <QuarterSelect />
               <RentalPeriodSelect />
               <div className="md:col-span-2">
-                <TextAreaField name="reason" label="Reason for request (optional)" placeholder="Include schedule, location needs, or context for staff." />
+                <TextAreaField name="reason" label="Reason for request (optional)" placeholder="Include schedule, access needs, or context for staff." />
               </div>
               <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
                 <input type="checkbox" name="acknowledged_terms" required className="mt-1 h-4 w-4 rounded border-slate-300" />

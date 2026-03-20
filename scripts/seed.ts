@@ -1,10 +1,17 @@
 import { getSqliteDb } from '../lib/db';
 import { LOCKER_TYPE } from '../lib/data';
+import {
+  STANDARD_FEE_MODEL,
+  STANDARD_LOCKER_LOCATION,
+  STANDARD_REFUNDABLE_DEPOSIT,
+  STANDARD_TOTAL_COST,
+} from '../lib/policy';
 
 const db = getSqliteDb();
 
 function reset() {
   db.exec(`
+    DELETE FROM app_settings;
     DELETE FROM audit_logs;
     DELETE FROM assignments;
     DELETE FROM lockers;
@@ -23,10 +30,10 @@ function seed() {
   `);
 
   const now = new Date().toISOString();
-  insertLocker.run('OM-101', 'Rady Courtyard East', LOCKER_TYPE, 'AVAILABLE', '12-24-08', '31-10-22', '19-05-33', '27-11-02', '15-30-09', 2, 'Near faculty entrance.', null, now, now);
-  insertLocker.run('OM-102', 'Rady Courtyard East', LOCKER_TYPE, 'ASSIGNED', '14-28-09', '06-18-31', '22-04-16', '11-25-07', '32-17-01', 3, null, null, now, now);
-  insertLocker.run('OM-201', 'Rady Patio West', LOCKER_TYPE, 'PENDING_RETURN', '21-09-14', '16-03-27', '30-11-05', '08-26-18', '13-32-06', 5, 'Flag for facilities review after next return.', null, now, now);
-  insertLocker.run('OM-202', 'Rady Patio West', LOCKER_TYPE, 'DISABLED', '10-22-04', '25-07-15', '02-19-31', '28-12-08', '17-29-03', 1, null, 'Door hinge repair request opened.', now, now);
+  insertLocker.run('OM-101', STANDARD_LOCKER_LOCATION, LOCKER_TYPE, 'AVAILABLE', '12-24-08', '31-10-22', '19-05-33', '27-11-02', '15-30-09', 2, 'Near faculty entrance.', null, now, now);
+  insertLocker.run('OM-102', STANDARD_LOCKER_LOCATION, LOCKER_TYPE, 'ASSIGNED', '14-28-09', '06-18-31', '22-04-16', '11-25-07', '32-17-01', 3, null, null, now, now);
+  insertLocker.run('OM-201', STANDARD_LOCKER_LOCATION, LOCKER_TYPE, 'PENDING_RETURN', '21-09-14', '16-03-27', '30-11-05', '08-26-18', '13-32-06', 5, 'Flag for facilities review after next return.', null, now, now);
+  insertLocker.run('OM-202', STANDARD_LOCKER_LOCATION, LOCKER_TYPE, 'DISABLED', '10-22-04', '25-07-15', '02-19-31', '28-12-08', '17-29-03', 1, null, 'Door hinge repair request opened.', now, now);
 
   const lockers = db.prepare(`SELECT locker_id, locker_number FROM lockers ORDER BY locker_id ASC`).all() as Array<{ locker_id: number; locker_number: string }>;
 
@@ -38,9 +45,9 @@ function seed() {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  insertAssignment.run('Ariana Patel', 'arpatel@ucsd.edu', 'A12345678', 'Full-Time MBA', 'Spring 2026', 'SUBMITTED', null, 'One Academic Quarter', null, null, null, null, 0, 'Would like a locker close to the courtyard entrance.', 'FLAT_25_NON_REFUNDABLE', 25, 0, 'NOT_APPLICABLE', null, null, now, now);
-  insertAssignment.run('Daniel Kim', 'dkim@ucsd.edu', 'A16789012', 'Master of Quantitative Finance (MQF)', 'Spring 2026', 'ASSIGNED', lockers[1].locker_id, 'One Academic Quarter', '2026-03-30', '2026-06-12', null, null, 0, 'Orientation week assignment.', 'DEPOSIT_50_WITH_25_REFUND', 50, 25, 'PENDING', null, 'Paid by department card terminal.', now, now);
-  insertAssignment.run('Sophia Ramirez', 'sramirez@ucsd.edu', 'A19876543', 'FlexEvening MBA', 'Winter 2026', 'CLOSED', lockers[2].locker_id, 'One Academic Quarter, with possible renewal request', '2026-01-06', '2026-03-20', '2026-03-18', 'Maria Staff', 1, 'Returned empty; combo advanced pending approval.', 'DEPOSIT_50_WITH_25_REFUND', 50, 25, 'COMPLETED', '2026-03-19', 'Refund processed in office.', now, now);
+  insertAssignment.run('Ariana Patel', 'arpatel@ucsd.edu', 'A12345678', 'Full-Time MBA', 'Spring 2026', 'SUBMITTED', null, 'One Academic Quarter', null, null, null, null, 0, 'Prefers a locker near the main outdoor bank.', STANDARD_FEE_MODEL, STANDARD_TOTAL_COST, STANDARD_REFUNDABLE_DEPOSIT, 'PENDING', null, null, now, now);
+  insertAssignment.run('Daniel Kim', 'dkim@ucsd.edu', 'A16789012', 'Master of Quantitative Finance (MQF)', 'Spring 2026', 'ASSIGNED', lockers[1].locker_id, 'One Academic Quarter', '2026-03-30', '2026-06-12', null, null, 0, 'Orientation week assignment.', STANDARD_FEE_MODEL, STANDARD_TOTAL_COST, STANDARD_REFUNDABLE_DEPOSIT, 'PENDING', null, 'Paid by department card terminal.', now, now);
+  insertAssignment.run('Sophia Ramirez', 'sramirez@ucsd.edu', 'A19876543', 'FlexEvening MBA', 'Winter 2026', 'CLOSED', lockers[2].locker_id, 'One Academic Quarter, with possible renewal request', '2026-01-06', '2026-03-20', '2026-03-18', 'Maria Staff', 1, 'Returned empty; combo advanced pending approval.', STANDARD_FEE_MODEL, STANDARD_TOTAL_COST, STANDARD_REFUNDABLE_DEPOSIT, 'COMPLETED', '2026-03-19', 'Refund processed in office.', now, now);
 
   const assignments = db.prepare(`SELECT request_id FROM assignments ORDER BY request_id ASC`).all() as Array<{ request_id: number }>;
 

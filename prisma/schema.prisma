@@ -31,8 +31,8 @@ enum RequestStatus {
 }
 
 enum FeeModel {
-  FLAT_25_NON_REFUNDABLE
   DEPOSIT_50_WITH_25_REFUND
+  FLAT_25_NON_REFUNDABLE
 }
 
 enum RefundStatus {
@@ -78,16 +78,22 @@ model Assignment {
   return_verified_by     String?
   renewal_requested      Boolean       @default(false)
   notes                  String?
-  fee_model              FeeModel      @default(FLAT_25_NON_REFUNDABLE)
-  amount_charged         Int           @default(25)
-  refundable_amount      Int           @default(0)
-  refund_status          RefundStatus  @default(NOT_APPLICABLE)
+  fee_model              FeeModel      @default(DEPOSIT_50_WITH_25_REFUND)
+  amount_charged         Int           @default(50)
+  refundable_amount      Int           @default(25)
+  refund_status          RefundStatus  @default(PENDING)
   refund_date            DateTime?
   payment_notes          String?
   created_at             DateTime      @default(now())
   updated_at             DateTime      @updatedAt
   locker                 Locker?       @relation(fields: [assigned_locker_id], references: [locker_id])
   auditLogs              AuditLog[]
+}
+
+model AppSetting {
+  setting_key   String   @id
+  setting_value String?
+  updated_at    DateTime @default(now())
 }
 
 model AuditLog {

@@ -3,10 +3,17 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { ADMIN_COOKIE } from '@/lib/auth';
-import { FEE_MODELS, LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
+import { ADMIN_COOKIE, requireAdmin } from '@/lib/auth';
+import { LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
 import { normalizeCsvHeader, parseCsv } from '@/lib/csv';
+import { LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, sendNewLockerRequestNotification } from '@/lib/notifications';
+import {
+  normalizeLockerLocation,
+  STANDARD_FEE_MODEL,
+  STANDARD_REFUNDABLE_DEPOSIT,
+  STANDARD_TOTAL_COST,
+} from '@/lib/policy';
 import { areRequestSubmissionsAvailable, REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE } from '@/lib/request-submissions';
 import {
   advanceComboRecord,
@@ -17,6 +24,7 @@ import {
   createAuditLog,
   createLockerRecord,
   createLockerRecordsBulk,
+  upsertAppSetting,
   markPendingReturnRecord,
   updateLockerRecord,
 } from '@/lib/db';
@@ -56,13 +64,32 @@ export async function submitLockerRequest(formData: FormData) {
     requested_rental_period: data.requested_rental_period,
     renewal_requested: renewalRequested,
     notes: data.reason || null,
-    fee_model: 'DEPOSIT_50_WITH_25_REFUND',
-    amount_charged: 50,
-    refundable_amount: 25,
+    fee_model: STANDARD_FEE_MODEL,
+    amount_charged: STANDARD_TOTAL_COST,
+    refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
     refund_status: 'PENDING',
     created_at: now,
     updated_at: now,
   });
+
+  try {
+    const result = await sendNewLockerRequestNotification({
+      student_name: data.student_name,
+      ucsd_email: data.ucsd_email,
+      pid_or_student_id: data.pid_or_student_id,
+      program: data.program,
+      requested_quarter: data.requested_quarter,
+      requested_rental_period: data.requested_rental_period,
+      notes: data.reason || null,
+      submitted_at: now,
+    });
+
+    if (!result.sent) {
+      console.warn(`Locker request notification skipped: ${result.reason}`);
+    }
+  } catch (error) {
+    console.error('Failed to send locker request notification.', error);
+  }
 
   redirect('/request/confirmation');
 }
@@ -98,7 +125,7 @@ export async function createLocker(formData: FormData) {
 
   await createLockerRecord({
     locker_number: String(formData.get('locker_number') || '').trim(),
-    location: String(formData.get('location') || '').trim(),
+    location: normalizeLockerLocation(String(formData.get('location') || '')),
     status,
     combo_1: String(formData.get('combo_1') || '').trim(),
     combo_2: String(formData.get('combo_2') || '').trim(),
@@ -157,8 +184,8 @@ export async function importLockers(formData: FormData) {
     const rawHeaders = rows[0];
     const headers = rawHeaders.map((header) => lockerImportHeaderMap[normalizeCsvHeader(header)] || '');
 
-    if (!headers.includes('locker_number') || !headers.includes('location') || !headers.includes('combo_1')) {
-      throw new Error('CSV must include locker number, location, and combination 1 columns.');
+    if (!headers.includes('locker_number') || !headers.includes('combo_1')) {
+      throw new Error('CSV must include locker number and combination 1 columns.');
     }
 
     const now = new Date().toISOString();
@@ -175,16 +202,12 @@ export async function importLockers(formData: FormData) {
 
       const rowNumber = index + 2;
       const lockerNumber = record.locker_number?.trim();
-      const location = record.location?.trim();
+      const location = normalizeLockerLocation(record.location);
       const combo1 = record.combo_1?.trim();
       const status = (record.status?.trim() || 'AVAILABLE').toUpperCase();
 
       if (!lockerNumber) {
         throw new Error(`Row ${rowNumber}: locker number is required.`);
-      }
-
-      if (!location) {
-        throw new Error(`Row ${rowNumber}: location is required.`);
       }
 
       if (!combo1) {
@@ -231,7 +254,7 @@ export async function updateLocker(formData: FormData) {
   const lockerNumber = await updateLockerRecord({
     locker_id: lockerId,
     locker_number: String(formData.get('locker_number') || '').trim(),
-    location: String(formData.get('location') || '').trim(),
+    location: normalizeLockerLocation(String(formData.get('location') || '')),
     status,
     combo_1: String(formData.get('combo_1') || '').trim(),
     combo_2: String(formData.get('combo_2') || '').trim(),
@@ -250,28 +273,54 @@ export async function updateLocker(formData: FormData) {
 export async function assignLocker(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
-  const feeModel = String(formData.get('fee_model') || 'FLAT_25_NON_REFUNDABLE');
-  const amountCharged = Number(formData.get('amount_charged') || 25);
-  const refundableAmount = Number(formData.get('refundable_amount') || 0);
   const paymentNotes = String(formData.get('payment_notes') || '').trim() || null;
   const now = new Date().toISOString();
-
-  if (!FEE_MODELS.includes(feeModel as never)) redirect(`/admin/request/${requestId}`);
 
   const assignment = await assignLockerRecord({
     request_id: requestId,
     locker_id: lockerId,
     assignment_start_date: String(formData.get('assignment_start_date') || '') || null,
     assignment_end_date: String(formData.get('assignment_end_date') || '') || null,
-    fee_model: feeModel,
-    amount_charged: amountCharged,
-    refundable_amount: refundableAmount,
+    fee_model: STANDARD_FEE_MODEL,
+    amount_charged: STANDARD_TOTAL_COST,
+    refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
     payment_notes: paymentNotes,
     updated_at: now,
   });
 
   await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
   redirect(`/admin/lockers/${lockerId}`);
+}
+
+export async function updateNotificationSettings(formData: FormData) {
+  await requireAdmin();
+
+  const rawEmail = String(formData.get('notification_email') || '').trim();
+  const parsed = rawEmail ? z.string().email().safeParse(rawEmail) : { success: true as const };
+
+  if (rawEmail && !parsed.success) {
+    redirect('/admin?settingsError=' + encodeURIComponent('Enter a valid notification email address.'));
+  }
+
+  const now = new Date().toISOString();
+  const settingValue = rawEmail || null;
+
+  await upsertAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, settingValue, now);
+  await createAuditLog(
+    'UPDATE_SETTING',
+    settingValue
+      ? `Updated locker request notification email to ${settingValue}.`
+      : 'Cleared saved locker request notification email setting.',
+  );
+
+  redirect(
+    '/admin?settingsSaved=' +
+      encodeURIComponent(
+        settingValue
+          ? 'Request notification email updated.'
+          : 'Saved notification email cleared. Environment fallback will be used if configured.',
+      ),
+  );
 }
 
 export async function markPendingReturn(formData: FormData) {

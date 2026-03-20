@@ -5,7 +5,12 @@ import { AdminShell } from '@/components/admin-shell';
 import { StatusBadge } from '@/components/status-badge';
 import { requireAdmin } from '@/lib/auth';
 import { getAvailableLockers, getRequestDetail } from '@/lib/db';
-import { formatFeeModel } from '@/lib/utils';
+import {
+  STANDARD_REFUNDABLE_DEPOSIT,
+  STANDARD_RENTAL_FEE,
+  STANDARD_TOTAL_COST,
+} from '@/lib/policy';
+import { formatCurrency } from '@/lib/utils';
 
 export default async function RequestReviewPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -79,22 +84,11 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                   Assignment end date
                   <input type="date" name="assignment_end_date" required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
                 </label>
-                <label className="block font-medium">
-                  Fee model
-                  <select name="fee_model" defaultValue={request.fee_model} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
-                    <option value="FLAT_25_NON_REFUNDABLE">{formatFeeModel('FLAT_25_NON_REFUNDABLE')}</option>
-                    <option value="DEPOSIT_50_WITH_25_REFUND">{formatFeeModel('DEPOSIT_50_WITH_25_REFUND')}</option>
-                  </select>
-                </label>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <label className="block font-medium">
-                    Amount charged
-                    <input type="number" name="amount_charged" defaultValue={request.amount_charged} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  </label>
-                  <label className="block font-medium">
-                    Refundable amount
-                    <input type="number" name="refundable_amount" defaultValue={request.refundable_amount} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  </label>
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+                  <p className="font-medium text-slate-900">Standard pricing applies automatically</p>
+                  <p className="mt-2">{formatCurrency(STANDARD_TOTAL_COST)} total</p>
+                  <p>{formatCurrency(STANDARD_REFUNDABLE_DEPOSIT)} refundable deposit</p>
+                  <p>{formatCurrency(STANDARD_RENTAL_FEE)} rental fee</p>
                 </div>
                 <label className="block font-medium">
                   Payment notes

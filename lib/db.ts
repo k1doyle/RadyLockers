@@ -12,6 +12,11 @@ import {
 } from '@/lib/data';
 import { getDatabaseMode, describeConfiguredDatabase, getConfiguredDatabaseUrl, resolveLocalSqlitePath } from '@/lib/database-config';
 import { ensurePostgresSchema, postgresQuery, postgresTransaction } from '@/lib/postgres';
+import {
+  STANDARD_FEE_MODEL,
+  STANDARD_REFUNDABLE_DEPOSIT,
+  STANDARD_TOTAL_COST,
+} from '@/lib/policy';
 
 type DashboardFilters = {
   search?: string;
@@ -169,10 +174,10 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentRow {
     return_verified_by: row.return_verified_by == null ? null : String(row.return_verified_by),
     renewal_requested: renewalRequested,
     notes: row.notes == null ? null : String(row.notes),
-    fee_model: String(row.fee_model ?? 'FLAT_25_NON_REFUNDABLE') as FeeModel,
-    amount_charged: normalizeInteger(row.amount_charged, 25),
-    refundable_amount: normalizeInteger(row.refundable_amount),
-    refund_status: String(row.refund_status ?? 'NOT_APPLICABLE') as RefundStatus,
+    fee_model: String(row.fee_model ?? STANDARD_FEE_MODEL) as FeeModel,
+    amount_charged: normalizeInteger(row.amount_charged, STANDARD_TOTAL_COST),
+    refundable_amount: normalizeInteger(row.refundable_amount, STANDARD_REFUNDABLE_DEPOSIT),
+    refund_status: String(row.refund_status ?? 'PENDING') as RefundStatus,
     refund_date: normalizeTimestamp(row.refund_date),
     payment_notes: row.payment_notes == null ? null : String(row.payment_notes),
     created_at: normalizeTimestamp(row.created_at) ?? new Date(0).toISOString(),
@@ -285,6 +290,52 @@ export async function createAuditLog(action: string, details: string, lockerId?:
     await postgresQuery(
       `INSERT INTO audit_logs (action, actor, details, locker_id, assignment_id) VALUES ($1, 'admin', $2, $3, $4)`,
       [action, details, lockerId ?? null, assignmentId ?? null],
+    );
+    return;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function getAppSetting(settingKey: string): Promise<string | null> {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    const row = db.prepare(`SELECT setting_value FROM app_settings WHERE setting_key = ?`).get(settingKey) as { setting_value: string | null } | undefined;
+    return row?.setting_value ?? null;
+  }
+
+  if (databaseMode === 'postgres') {
+    const result = await postgresQuery<{ setting_value: string | null }>(
+      `SELECT setting_value FROM app_settings WHERE setting_key = $1`,
+      [settingKey],
+    );
+    return result.rows[0]?.setting_value ?? null;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function upsertAppSetting(settingKey: string, settingValue: string | null, updatedAt: string) {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    db.prepare(`
+      INSERT INTO app_settings (setting_key, setting_value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(setting_key) DO UPDATE SET
+        setting_value = excluded.setting_value,
+        updated_at = excluded.updated_at
+    `).run(settingKey, settingValue, updatedAt);
+    return;
+  }
+
+  if (databaseMode === 'postgres') {
+    await postgresQuery(
+      `INSERT INTO app_settings (setting_key, setting_value, updated_at)
+       VALUES ($1, $2, $3)
+       ON CONFLICT(setting_key) DO UPDATE SET
+         setting_value = EXCLUDED.setting_value,
+         updated_at = EXCLUDED.updated_at`,
+      [settingKey, settingValue, updatedAt],
     );
     return;
   }

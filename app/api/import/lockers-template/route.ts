@@ -1,6 +1,8 @@
+import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
+
 const templateRows = [
   ['locker_number', 'location', 'combo1', 'combo2', 'combo3', 'combo4', 'combo5', 'notes', 'status'],
-  ['OM-101', 'Rady Courtyard East', '12-24-08', '', '', '', '', 'Near faculty entrance', 'AVAILABLE'],
+  ['OM-101', STANDARD_LOCKER_LOCATION, '12-24-08', '', '', '', '', 'Near faculty entrance', 'AVAILABLE'],
 ];
 
 export async function GET() {

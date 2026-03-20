@@ -34,15 +34,21 @@ CREATE TABLE IF NOT EXISTS assignments (
   return_verified_by TEXT,
   renewal_requested INTEGER NOT NULL DEFAULT 0,
   notes TEXT,
-  fee_model TEXT NOT NULL DEFAULT 'FLAT_25_NON_REFUNDABLE',
-  amount_charged INTEGER NOT NULL DEFAULT 25,
-  refundable_amount INTEGER NOT NULL DEFAULT 0,
-  refund_status TEXT NOT NULL DEFAULT 'NOT_APPLICABLE',
+  fee_model TEXT NOT NULL DEFAULT 'DEPOSIT_50_WITH_25_REFUND',
+  amount_charged INTEGER NOT NULL DEFAULT 50,
+  refundable_amount INTEGER NOT NULL DEFAULT 25,
+  refund_status TEXT NOT NULL DEFAULT 'PENDING',
   refund_date TEXT,
   payment_notes TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (assigned_locker_id) REFERENCES lockers(locker_id)
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  setting_key TEXT PRIMARY KEY,
+  setting_value TEXT,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
