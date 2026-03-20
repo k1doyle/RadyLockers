@@ -9,7 +9,15 @@ import { requireAdmin } from '@/lib/auth';
 import { getLockerDetail } from '@/lib/db';
 import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
 import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
+function formatPacificDateTime(value: string | Date) {
+  const date = new Date(value);
 
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    timeZone: 'America/Los_Angeles',
+  }).format(date);
+}
 export default async function LockerDetailPage({
   params,
   searchParams,
@@ -127,7 +135,7 @@ export default async function LockerDetailPage({
                         <p>
                           Email status:{' '}
                           {assignment.assignment_email_status === 'SENT' && assignment.assignment_email_sent_at
-                            ? `Sent ${new Date(assignment.assignment_email_sent_at).toLocaleString()}`
+                            ? `Sent ${formatPacificDateTime(assignment.assignment_email_sent_at)}`
                             : assignment.assignment_email_status === 'FAILED'
                               ? 'Failed to send'
                               : 'Not sent'}
@@ -158,7 +166,7 @@ export default async function LockerDetailPage({
                     <p className="font-semibold text-slate-900">Assignment email</p>
                     <p>
                       {activeAssignment.assignment_email_status === 'SENT' && activeAssignment.assignment_email_sent_at
-                        ? `Email sent on ${new Date(activeAssignment.assignment_email_sent_at).toLocaleString()}.`
+                        ? `Email sent on ${formatPacificDateTime(activeAssignment.assignment_email_sent_at)}.`
                         : activeAssignment.assignment_email_status === 'FAILED'
                           ? 'Email failed to send.'
                           : 'Not sent yet.'}
@@ -226,7 +234,7 @@ export default async function LockerDetailPage({
                     <div key={log.id} className="rounded-2xl bg-slate-50 p-4">
                       <p className="font-semibold text-slate-900">{log.action}</p>
                       <p className="mt-1">{log.details}</p>
-                      <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">{new Date(log.created_at).toLocaleString()}</p>
+                      <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">{formatPacificDateTime(log.created_at)}</p>
                     </div>
                   ))
                 ) : (

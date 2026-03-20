@@ -23,22 +23,7 @@ const workflowSteps = [
   'Approved students receive locker assignment and payment details by UCSD email.',
 ];
 
-const operationsHighlights = [
-  {
-    title: 'Quarter-based management',
-    description: 'Assignments, renewals, and returns stay aligned with the UC San Diego academic calendar.',
-  },
-  {
-    title: 'Combination rotation tracking',
-    description: 'Each outdoor locker keeps its preset combination history so staff can advance access after verified returns.',
-  },
-  {
-    title: 'Internal staff oversight',
-    description: 'Student requests, locker inventory, and assignment history are managed in one internal workflow.',
-  },
-];
-
-const trustSignals = ['Managed by Rady Student Affairs', 'Student data is not publicly exposed'];
+const trustSignals = ['Managed by Rady Student Affairs'];
 
 export default function HomePage() {
   return (
@@ -162,15 +147,6 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-          </div>
-
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {operationsHighlights.map((highlight) => (
-              <article key={highlight.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-brand-navy">{highlight.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-slate-600">{highlight.description}</p>
-              </article>
-            ))}
           </div>
         </section>
       </main>
