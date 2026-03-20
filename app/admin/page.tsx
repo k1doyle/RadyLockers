@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { createLocker } from '@/app/actions';
 import { lockerStatuses, quarters } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
+import { canUseLocalSqliteRuntime, describeConfiguredDatabase, getConfiguredDatabaseUrl } from '@/lib/database-config';
 import { getDashboardData } from '@/lib/queries';
 import { formatStatus } from '@/lib/utils';
 
@@ -15,6 +16,29 @@ export default async function AdminDashboard({
 }) {
   await requireAdmin();
   const params = await searchParams;
+  const adminDataAvailable = canUseLocalSqliteRuntime();
+
+  if (!adminDataAvailable) {
+    return (
+      <AdminShell>
+        <div className="mx-auto max-w-4xl px-6 py-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Operations Dashboard</p>
+            <h1 className="mt-2 text-3xl font-semibold text-brand-navy">Admin data is temporarily unavailable</h1>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+              This deployment is configured with {describeConfiguredDatabase(getConfiguredDatabaseUrl())}, but the admin dashboard still reads from the local SQLite workflow. The page is rendering safely, but live locker inventory, requests, exports, and admin updates are unavailable in this environment until hosted persistence is wired in.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/" className="rounded-xl bg-brand-navy px-5 py-3 text-sm font-semibold text-white">
+                Return home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </AdminShell>
+    );
+  }
+
   const { lockers, requests, metrics, locations } = getDashboardData({
     search: typeof params.search === 'string' ? params.search : '',
     status: typeof params.status === 'string' ? params.status : '',
