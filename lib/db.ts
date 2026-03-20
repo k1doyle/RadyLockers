@@ -3,6 +3,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import type { QueryResultRow } from 'pg';
 import {
+  type AssignmentEmailStatus,
   type AssignmentRow,
   type AuditLogRow,
   type FeeModel,
@@ -117,6 +118,17 @@ type LockerComboRow = {
   combo_5: string;
 };
 
+type AssignmentEmailPayload = {
+  request_id: number;
+  student_name: string;
+  ucsd_email: string;
+  locker_number: string;
+  location: string;
+  combo_value: string;
+  assignment_start_date: string | null;
+  assignment_end_date: string | null;
+};
+
 const rootDir = process.cwd();
 const sqliteSchemaPath = path.join(rootDir, 'db', 'schema.sql');
 const configuredDatabaseUrl = getConfiguredDatabaseUrl();
@@ -214,6 +226,8 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentRow {
     refund_status: String(row.refund_status ?? 'PENDING') as RefundStatus,
     refund_date: normalizeTimestamp(row.refund_date),
     payment_notes: row.payment_notes == null ? null : String(row.payment_notes),
+    assignment_email_status: row.assignment_email_status == null ? null : String(row.assignment_email_status) as AssignmentEmailStatus,
+    assignment_email_sent_at: normalizeTimestamp(row.assignment_email_sent_at),
     created_at: normalizeTimestamp(row.created_at) ?? new Date(0).toISOString(),
     updated_at: normalizeTimestamp(row.updated_at) ?? new Date(0).toISOString(),
   };
@@ -269,6 +283,14 @@ function ensureSqliteSchema(db: Database.Database) {
       END
       WHERE requested_rental_period IS NULL
     `).run();
+  }
+
+  if (!assignmentColumns.some((column) => column.name === 'assignment_email_status')) {
+    db.prepare(`ALTER TABLE assignments ADD COLUMN assignment_email_status TEXT`).run();
+  }
+
+  if (!assignmentColumns.some((column) => column.name === 'assignment_email_sent_at')) {
+    db.prepare(`ALTER TABLE assignments ADD COLUMN assignment_email_sent_at TEXT`).run();
   }
 }
 
@@ -720,6 +742,126 @@ export async function assignLockerRecord(input: AssignLockerInput) {
         ucsd_email: assignment?.ucsd_email ?? '',
       };
     });
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function updateAssignmentEmailDelivery(
+  requestId: number,
+  status: AssignmentEmailStatus,
+  sentAt: string | null,
+  updatedAt: string,
+) {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    db.prepare(`
+      UPDATE assignments
+      SET assignment_email_status = ?, assignment_email_sent_at = ?, updated_at = ?
+      WHERE request_id = ?
+    `).run(status, sentAt, updatedAt, requestId);
+    return;
+  }
+
+  if (databaseMode === 'postgres') {
+    await postgresQuery(
+      `UPDATE assignments
+       SET assignment_email_status = $1, assignment_email_sent_at = $2, updated_at = $3
+       WHERE request_id = $4`,
+      [status, sentAt, updatedAt, requestId],
+    );
+    return;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function getAssignmentEmailPayload(requestId: number): Promise<AssignmentEmailPayload | null> {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    const row = db.prepare(`
+      SELECT
+        a.request_id,
+        a.student_name,
+        a.ucsd_email,
+        a.assignment_start_date,
+        a.assignment_end_date,
+        l.locker_number,
+        l.location,
+        l.active_combo_index,
+        l.combo_1,
+        l.combo_2,
+        l.combo_3,
+        l.combo_4,
+        l.combo_5
+      FROM assignments a
+      LEFT JOIN lockers l ON l.locker_id = a.assigned_locker_id
+      WHERE a.request_id = ?
+    `).get(requestId) as Record<string, unknown> | undefined;
+
+    if (!row || row.locker_number == null) return null;
+
+    return {
+      request_id: normalizeInteger(row.request_id),
+      student_name: String(row.student_name ?? ''),
+      ucsd_email: String(row.ucsd_email ?? ''),
+      locker_number: String(row.locker_number ?? ''),
+      location: String(row.location ?? ''),
+      combo_value: getActiveComboValue({
+        active_combo_index: normalizeInteger(row.active_combo_index, 1),
+        combo_1: String(row.combo_1 ?? ''),
+        combo_2: String(row.combo_2 ?? ''),
+        combo_3: String(row.combo_3 ?? ''),
+        combo_4: String(row.combo_4 ?? ''),
+        combo_5: String(row.combo_5 ?? ''),
+      }),
+      assignment_start_date: normalizeTimestamp(row.assignment_start_date),
+      assignment_end_date: normalizeTimestamp(row.assignment_end_date),
+    };
+  }
+
+  if (databaseMode === 'postgres') {
+    const result = await postgresQuery<QueryResultRow>(
+      `SELECT
+        a.request_id,
+        a.student_name,
+        a.ucsd_email,
+        a.assignment_start_date,
+        a.assignment_end_date,
+        l.locker_number,
+        l.location,
+        l.active_combo_index,
+        l.combo_1,
+        l.combo_2,
+        l.combo_3,
+        l.combo_4,
+        l.combo_5
+      FROM assignments a
+      LEFT JOIN lockers l ON l.locker_id = a.assigned_locker_id
+      WHERE a.request_id = $1`,
+      [requestId],
+    );
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+
+    if (!row || row.locker_number == null) return null;
+
+    return {
+      request_id: normalizeInteger(row.request_id),
+      student_name: String(row.student_name ?? ''),
+      ucsd_email: String(row.ucsd_email ?? ''),
+      locker_number: String(row.locker_number ?? ''),
+      location: String(row.location ?? ''),
+      combo_value: getActiveComboValue({
+        active_combo_index: normalizeInteger(row.active_combo_index, 1),
+        combo_1: String(row.combo_1 ?? ''),
+        combo_2: String(row.combo_2 ?? ''),
+        combo_3: String(row.combo_3 ?? ''),
+        combo_4: String(row.combo_4 ?? ''),
+        combo_5: String(row.combo_5 ?? ''),
+      }),
+      assignment_start_date: normalizeTimestamp(row.assignment_start_date),
+      assignment_end_date: normalizeTimestamp(row.assignment_end_date),
+    };
   }
 
   throw unsupportedDatabaseError();

@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   refund_status TEXT NOT NULL DEFAULT 'PENDING',
   refund_date TIMESTAMPTZ,
   payment_notes TEXT,
+  assignment_email_status TEXT,
+  assignment_email_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -59,6 +61,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 ALTER TABLE assignments ADD COLUMN IF NOT EXISTS requested_rental_period TEXT;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignment_email_status TEXT;
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS assignment_email_sent_at TIMESTAMPTZ;
 ALTER TABLE assignments ALTER COLUMN fee_model SET DEFAULT 'DEPOSIT_50_WITH_25_REFUND';
 ALTER TABLE assignments ALTER COLUMN amount_charged SET DEFAULT 50;
 ALTER TABLE assignments ALTER COLUMN refundable_amount SET DEFAULT 25;

@@ -29,8 +29,10 @@ import {
   createAuditLog,
   createLockerRecord,
   createLockerRecordsBulk,
+  getAssignmentEmailPayload,
   upsertAppSetting,
   markPendingReturnRecord,
+  updateAssignmentEmailDelivery,
   updateLockerRecord,
 } from '@/lib/db';
 
@@ -44,6 +46,47 @@ const requestSchema = z.object({
   reason: z.string().optional(),
   acknowledged_terms: z.literal('on'),
 });
+
+async function sendAssignmentEmailAndTrack(
+  requestId: number,
+  lockerId: number,
+) {
+  const payload = await getAssignmentEmailPayload(requestId);
+
+  if (!payload || !payload.assignment_start_date || !payload.assignment_end_date) {
+    const reason = 'Assignment email could not be prepared because locker or date details are incomplete.';
+    console.warn(reason);
+    await updateAssignmentEmailDelivery(requestId, 'FAILED', null, new Date().toISOString());
+    return { sent: false as const, reason };
+  }
+
+  try {
+    const result = await sendLockerAssignmentEmail({
+      student_name: payload.student_name,
+      ucsd_email: payload.ucsd_email,
+      locker_number: payload.locker_number,
+      location: payload.location,
+      combo_value: payload.combo_value,
+      assignment_start_date: payload.assignment_start_date,
+      assignment_end_date: payload.assignment_end_date,
+    });
+
+    const now = new Date().toISOString();
+
+    if (!result.sent) {
+      await updateAssignmentEmailDelivery(requestId, 'FAILED', null, now);
+      return result;
+    }
+
+    await updateAssignmentEmailDelivery(requestId, 'SENT', now, now);
+    return result;
+  } catch (error) {
+    const now = new Date().toISOString();
+    await updateAssignmentEmailDelivery(requestId, 'FAILED', null, now);
+    console.error('Failed to send locker assignment email.', error);
+    return { sent: false as const, reason: 'The locker assignment email could not be sent.' };
+  }
+}
 
 export async function submitLockerRequest(formData: FormData) {
   if (!areRequestSubmissionsAvailable()) {
@@ -303,32 +346,37 @@ export async function assignLocker(formData: FormData) {
 
   let destination = `/admin/lockers/${lockerId}`;
 
-  try {
-    if (assignmentStartDate && assignmentEndDate) {
-      const result = await sendLockerAssignmentEmail({
-        student_name: assignment.student_name,
-        ucsd_email: assignment.ucsd_email,
-        locker_number: assignment.locker_number,
-        location: assignment.location,
-        combo_value: assignment.combo_value,
-        assignment_start_date: assignmentStartDate,
-        assignment_end_date: assignmentEndDate,
-      });
-
-      if (!result.sent) {
-        console.warn(`Locker assignment email skipped: ${result.reason}`);
-        destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${result.reason}`);
-      } else if (!result.internalCopyRecipient) {
-        console.warn('Locker assignment email sent to the student without an internal BCC recipient configured.');
-        destination += '?emailWarning=' + encodeURIComponent('Student assignment email sent, but no internal BCC inbox is configured.');
-      }
-    }
-  } catch (error) {
-    console.error('Failed to send locker assignment email.', error);
-    destination += '?emailWarning=' + encodeURIComponent('Locker assignment saved, but the email could not be sent.');
+  const emailResult = await sendAssignmentEmailAndTrack(requestId, lockerId);
+  if (!emailResult.sent) {
+    destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${emailResult.reason}`);
+  } else if (!emailResult.internalCopyRecipient) {
+    destination += '?emailWarning=' + encodeURIComponent('Student assignment email sent, but no internal BCC inbox is configured.');
   }
 
   redirect(destination);
+}
+
+export async function resendAssignmentEmail(formData: FormData) {
+  await requireAdmin();
+
+  const requestId = Number(formData.get('request_id'));
+  const lockerId = Number(formData.get('locker_id'));
+  const result = await sendAssignmentEmailAndTrack(requestId, lockerId);
+
+  if (!result.sent) {
+    redirect(
+      `/admin/lockers/${lockerId}?emailWarning=` +
+        encodeURIComponent(`Locker details were not resent. ${result.reason}`),
+    );
+  }
+
+  await createAuditLog('RESEND_ASSIGNMENT_EMAIL', 'Resent locker assignment email to the student.', lockerId, requestId);
+
+  const message = result.internalCopyRecipient
+    ? 'Locker details email resent successfully.'
+    : 'Locker details email resent to the student, but no internal BCC inbox is configured.';
+
+  redirect(`/admin/lockers/${lockerId}?emailSuccess=${encodeURIComponent(message)}`);
 }
 
 export async function updateNotificationSettings(formData: FormData) {

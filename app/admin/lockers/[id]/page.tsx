@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, updateLocker } from '@/app/actions';
+import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, resendAssignmentEmail, updateLocker } from '@/app/actions';
 import { AdminShell } from '@/components/admin-shell';
 import { TextAreaField, TextField } from '@/components/forms';
 import { StatusBadge } from '@/components/status-badge';
@@ -20,6 +20,7 @@ export default async function LockerDetailPage({
   await requireAdmin();
   const { id } = await params;
   const pageParams = await searchParams;
+  const emailSuccess = typeof pageParams.emailSuccess === 'string' ? pageParams.emailSuccess : '';
   const emailWarning = typeof pageParams.emailWarning === 'string' ? pageParams.emailWarning : '';
   const data = await getLockerDetail(Number(id));
   if (!data) notFound();
@@ -46,6 +47,11 @@ export default async function LockerDetailPage({
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <div className="space-y-6">
+            {emailSuccess ? (
+              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+                {emailSuccess}
+              </div>
+            ) : null}
             {emailWarning ? (
               <div className="rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
                 {emailWarning}
@@ -118,6 +124,14 @@ export default async function LockerDetailPage({
                         <p>Fee model: {formatFeeModel(assignment.fee_model)}</p>
                         <p>Charged: {formatCurrency(assignment.amount_charged)}</p>
                         <p>Refundable: {formatCurrency(assignment.refundable_amount)}</p>
+                        <p>
+                          Email status:{' '}
+                          {assignment.assignment_email_status === 'SENT' && assignment.assignment_email_sent_at
+                            ? `Sent ${new Date(assignment.assignment_email_sent_at).toLocaleString()}`
+                            : assignment.assignment_email_status === 'FAILED'
+                              ? 'Failed to send'
+                              : 'Not sent'}
+                        </p>
                         <p>Renewal requested: {assignment.renewal_requested ? 'Yes' : 'No'}</p>
                         <p>Returned: {assignment.returned_date ? new Date(assignment.returned_date).toLocaleDateString() : 'Not yet returned'}</p>
                       </div>
@@ -139,6 +153,21 @@ export default async function LockerDetailPage({
                     <p className="font-semibold text-slate-900">{activeAssignment.student_name}</p>
                     <p>{activeAssignment.requested_quarter}</p>
                     <p className="mt-2">Ends: {activeAssignment.assignment_end_date ? new Date(activeAssignment.assignment_end_date).toLocaleDateString() : 'Not set'}</p>
+                  </div>
+                  <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                    <p className="font-semibold text-slate-900">Assignment email</p>
+                    <p>
+                      {activeAssignment.assignment_email_status === 'SENT' && activeAssignment.assignment_email_sent_at
+                        ? `Email sent on ${new Date(activeAssignment.assignment_email_sent_at).toLocaleString()}.`
+                        : activeAssignment.assignment_email_status === 'FAILED'
+                          ? 'Email failed to send.'
+                          : 'Not sent yet.'}
+                    </p>
+                    <form action={resendAssignmentEmail}>
+                      <input type="hidden" name="request_id" value={activeAssignment.request_id} />
+                      <input type="hidden" name="locker_id" value={locker.locker_id} />
+                      <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Resend locker details</button>
+                    </form>
                   </div>
                   <form action={markPendingReturn} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
