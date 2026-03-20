@@ -4,9 +4,9 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { ADMIN_COOKIE } from '@/lib/auth';
-import { createAuditLog, db } from '@/lib/db';
 import { FEE_MODELS, LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
+import { areRequestSubmissionsAvailable, REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE } from '@/lib/request-submissions';
 
 const requestSchema = z.object({
   student_name: z.string().min(2),
@@ -20,6 +20,10 @@ const requestSchema = z.object({
 });
 
 export async function submitLockerRequest(formData: FormData) {
+  if (!areRequestSubmissionsAvailable()) {
+    redirect(`/request?notice=${encodeURIComponent(REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE)}`);
+  }
+
   const parsed = requestSchema.safeParse(Object.fromEntries(formData));
 
   if (!parsed.success) {
@@ -29,6 +33,7 @@ export async function submitLockerRequest(formData: FormData) {
   const data = parsed.data;
   const now = new Date().toISOString();
   const renewalRequested = data.requested_rental_period === 'One Academic Quarter, with possible renewal request' ? 1 : 0;
+  const { db } = await import('@/lib/db');
 
   db.prepare(`
     INSERT INTO assignments (
@@ -78,6 +83,7 @@ export async function createLocker(formData: FormData) {
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
   if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin');
+  const { db } = await import('@/lib/db');
 
   db.prepare(`
     INSERT INTO lockers (
@@ -107,6 +113,7 @@ export async function updateLocker(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
 
   db.prepare(`
     UPDATE lockers
@@ -142,6 +149,7 @@ export async function assignLocker(formData: FormData) {
   const refundableAmount = Number(formData.get('refundable_amount') || 0);
   const paymentNotes = String(formData.get('payment_notes') || '').trim() || null;
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
 
   if (!FEE_MODELS.includes(feeModel as never)) redirect(`/admin/request/${requestId}`);
 
@@ -175,6 +183,7 @@ export async function markPendingReturn(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
 
   db.prepare(`UPDATE lockers SET status = 'PENDING_RETURN', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
   createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
@@ -187,6 +196,7 @@ export async function completeReturn(formData: FormData) {
   const refundStatus = String(formData.get('refund_status') || 'NOT_APPLICABLE');
   const shouldAdvance = formData.get('advance_combo') === 'on';
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
 
   if (!REFUND_STATUSES.includes(refundStatus as never)) redirect(`/admin/lockers/${lockerId}`);
 
@@ -217,6 +227,7 @@ export async function completeReturn(formData: FormData) {
 export async function advanceCombo(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
   const locker = db.prepare(`SELECT active_combo_index, status FROM lockers WHERE locker_id = ?`).get(lockerId) as {
     active_combo_index: number;
     status: string;
@@ -237,6 +248,7 @@ export async function closeAssignment(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
+  const { createAuditLog, db } = await import('@/lib/db');
 
   db.prepare(`UPDATE assignments SET request_status = 'CLOSED', updated_at = ? WHERE request_id = ?`).run(now, requestId);
   db.prepare(`UPDATE lockers SET status = 'AVAILABLE', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
