@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { submitLockerRequest } from '@/app/actions';
 import { ProgramSelect, QuarterSelect, RentalPeriodSelect, TextAreaField, TextField } from '@/components/forms';
+import { areRequestSubmissionsAvailable, REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE } from '@/lib/request-submissions';
 import { SiteShell } from '@/components/site-shell';
 
 export default async function RequestPage({
@@ -10,6 +11,8 @@ export default async function RequestPage({
 }) {
   const params = await searchParams;
   const error = typeof params.error === 'string' ? params.error : '';
+  const notice = typeof params.notice === 'string' ? params.notice : '';
+  const submissionsAvailable = areRequestSubmissionsAvailable();
 
   return (
     <SiteShell>
@@ -24,29 +27,41 @@ export default async function RequestPage({
           </div>
 
           {error ? <div className="mt-6 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+          {!error && (notice || !submissionsAvailable) ? (
+            <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {notice || REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE}
+            </div>
+          ) : null}
 
           <form action={submitLockerRequest} className="mt-8 grid gap-6 md:grid-cols-2">
-            <TextField name="student_name" label="Full name" required placeholder="First Last" />
-            <TextField name="ucsd_email" label="UCSD email" type="email" required placeholder="name@ucsd.edu" />
-            <TextField name="pid_or_student_id" label="Student PID or ID" required placeholder="A12345678" />
-            <ProgramSelect />
-            <QuarterSelect />
-            <RentalPeriodSelect />
-            <div className="md:col-span-2">
-              <TextAreaField name="reason" label="Reason for request (optional)" placeholder="Include schedule, location needs, or context for staff." />
-            </div>
-            <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
-              <input type="checkbox" name="acknowledged_terms" required className="mt-1 h-4 w-4 rounded border-slate-300" />
-              <span>
-                I understand lockers are assigned per quarter, lockers remain Rady property, the total cost is $50, including a $25 refundable deposit, and staff may revoke access if policies are not followed.
-              </span>
-            </label>
-            <div className="md:col-span-2 flex flex-wrap items-center gap-4">
-              <button className="rounded-xl bg-brand-navy px-6 py-3 text-sm font-semibold text-white">Submit request</button>
-              <Link href="/" className="text-sm font-medium text-slate-500">
-                Back to overview
-              </Link>
-            </div>
+            <fieldset disabled={!submissionsAvailable} className="contents disabled:opacity-60">
+              <TextField name="student_name" label="Full name" required placeholder="First Last" />
+              <TextField name="ucsd_email" label="UCSD email" type="email" required placeholder="name@ucsd.edu" />
+              <TextField name="pid_or_student_id" label="Student PID or ID" required placeholder="A12345678" />
+              <ProgramSelect />
+              <QuarterSelect />
+              <RentalPeriodSelect />
+              <div className="md:col-span-2">
+                <TextAreaField name="reason" label="Reason for request (optional)" placeholder="Include schedule, location needs, or context for staff." />
+              </div>
+              <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+                <input type="checkbox" name="acknowledged_terms" required className="mt-1 h-4 w-4 rounded border-slate-300" />
+                <span>
+                  I understand lockers are assigned per quarter, lockers remain Rady property, the total cost is $50, including a $25 refundable deposit, and staff may revoke access if policies are not followed.
+                </span>
+              </label>
+              <div className="md:col-span-2 flex flex-wrap items-center gap-4">
+                <button
+                  disabled={!submissionsAvailable}
+                  className="rounded-xl bg-brand-navy px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {submissionsAvailable ? 'Submit request' : 'Submission unavailable'}
+                </button>
+                <Link href="/" className="text-sm font-medium text-slate-500">
+                  Back to overview
+                </Link>
+              </div>
+            </fieldset>
           </form>
         </div>
       </main>
