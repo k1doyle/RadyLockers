@@ -1,7 +1,5 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS lockers (
-  locker_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  locker_id SERIAL PRIMARY KEY,
   locker_number TEXT NOT NULL UNIQUE,
   location TEXT NOT NULL,
   locker_type TEXT NOT NULL DEFAULT 'OUTDOOR_METAL_COMBINATION',
@@ -14,12 +12,12 @@ CREATE TABLE IF NOT EXISTS lockers (
   active_combo_index INTEGER NOT NULL DEFAULT 1,
   notes TEXT,
   disabled_reason TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS assignments (
-  request_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_id SERIAL PRIMARY KEY,
   student_name TEXT NOT NULL,
   ucsd_email TEXT NOT NULL,
   pid_or_student_id TEXT NOT NULL,
@@ -27,10 +25,10 @@ CREATE TABLE IF NOT EXISTS assignments (
   requested_quarter TEXT NOT NULL,
   requested_rental_period TEXT,
   request_status TEXT NOT NULL DEFAULT 'SUBMITTED',
-  assigned_locker_id INTEGER,
-  assignment_start_date TEXT,
-  assignment_end_date TEXT,
-  returned_date TEXT,
+  assigned_locker_id INTEGER REFERENCES lockers(locker_id),
+  assignment_start_date TIMESTAMPTZ,
+  assignment_end_date TIMESTAMPTZ,
+  returned_date TIMESTAMPTZ,
   return_verified_by TEXT,
   renewal_requested INTEGER NOT NULL DEFAULT 0,
   notes TEXT,
@@ -38,24 +36,30 @@ CREATE TABLE IF NOT EXISTS assignments (
   amount_charged INTEGER NOT NULL DEFAULT 25,
   refundable_amount INTEGER NOT NULL DEFAULT 0,
   refund_status TEXT NOT NULL DEFAULT 'NOT_APPLICABLE',
-  refund_date TEXT,
+  refund_date TIMESTAMPTZ,
   payment_notes TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (assigned_locker_id) REFERENCES lockers(locker_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id SERIAL PRIMARY KEY,
   action TEXT NOT NULL,
   actor TEXT NOT NULL,
   details TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  locker_id INTEGER,
-  assignment_id INTEGER,
-  FOREIGN KEY (locker_id) REFERENCES lockers(locker_id),
-  FOREIGN KEY (assignment_id) REFERENCES assignments(request_id)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  locker_id INTEGER REFERENCES lockers(locker_id),
+  assignment_id INTEGER REFERENCES assignments(request_id)
 );
+
+ALTER TABLE assignments ADD COLUMN IF NOT EXISTS requested_rental_period TEXT;
+
+UPDATE assignments
+SET requested_rental_period = CASE
+  WHEN renewal_requested = 1 THEN 'One Academic Quarter, with possible renewal request'
+  ELSE 'One Academic Quarter'
+END
+WHERE requested_rental_period IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_lockers_status ON lockers(status);
 CREATE INDEX IF NOT EXISTS idx_lockers_location ON lockers(location);

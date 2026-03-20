@@ -12,7 +12,7 @@ import { formatCurrency, formatStatus, getComboValue } from '@/lib/utils';
 export default async function LockerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const data = getLockerDetail(Number(id));
+  const data = await getLockerDetail(Number(id));
   if (!data) notFound();
 
   const { locker, assignments, auditLogs } = data;
@@ -92,6 +92,7 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
                       </div>
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                         <p>Quarter: {assignment.requested_quarter}</p>
+                        <p>Rental period: {assignment.requested_rental_period ?? 'Not provided'}</p>
                         <p>Fee model: {formatStatus(assignment.fee_model)}</p>
                         <p>Charged: {formatCurrency(assignment.amount_charged)}</p>
                         <p>Refundable: {formatCurrency(assignment.refundable_amount)}</p>

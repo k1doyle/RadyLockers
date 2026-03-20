@@ -69,6 +69,7 @@ model Assignment {
   pid_or_student_id      String
   program                String
   requested_quarter      String
+  requested_rental_period String?
   request_status         RequestStatus @default(SUBMITTED)
   assigned_locker_id     Int?
   assignment_start_date  DateTime?

@@ -27,7 +27,8 @@ This version intentionally does **not** include:
 
 - Next.js (App Router)
 - TypeScript
-- SQLite with `better-sqlite3`
+- SQLite with `better-sqlite3` for local development
+- Postgres/Neon via `pg` for hosted runtime persistence
 - Tailwind CSS
 
 ## Local setup
@@ -51,7 +52,7 @@ This version intentionally does **not** include:
    ADMIN_PASSWORD="rady-admin-demo"
    ```
 
-4. Initialize the SQLite schema:
+4. Initialize the configured database schema:
 
    ```bash
    npm run db:push
@@ -71,9 +72,16 @@ This version intentionally does **not** include:
 
 7. Open `http://localhost:3000`.
 
+## Runtime database modes
+
+- Local development defaults to SQLite via `DATABASE_URL="file:./data/rady-lockers.db"`.
+- Hosted environments can use a Postgres connection string in `DATABASE_URL`.
+- The app initializes the configured schema at runtime for supported database modes.
+
 ## Database schema
 
 - SQL schema file: `db/schema.sql`
+- Postgres schema file: `db/postgres-schema.sql`
 - Seed script: `scripts/seed.ts`
 - Database helper module: `lib/db.ts`
 
@@ -103,6 +111,7 @@ Students submit:
 - PID or student ID
 - Program
 - Requested quarter
+- Requested rental period
 - Optional reason
 - Terms acknowledgement
 
