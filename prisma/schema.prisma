@@ -42,6 +42,11 @@ enum RefundStatus {
   FORFEITED
 }
 
+enum AssignmentEmailStatus {
+  SENT
+  FAILED
+}
+
 model Locker {
   locker_id          Int             @id @default(autoincrement())
   locker_number      String          @unique
@@ -84,6 +89,8 @@ model Assignment {
   refund_status          RefundStatus  @default(PENDING)
   refund_date            DateTime?
   payment_notes          String?
+  assignment_email_status AssignmentEmailStatus?
+  assignment_email_sent_at DateTime?
   created_at             DateTime      @default(now())
   updated_at             DateTime      @updatedAt
   locker                 Locker?       @relation(fields: [assigned_locker_id], references: [locker_id])

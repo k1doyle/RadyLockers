@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS assignments (
   refund_status TEXT NOT NULL DEFAULT 'PENDING',
   refund_date TEXT,
   payment_notes TEXT,
+  assignment_email_status TEXT,
+  assignment_email_sent_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (assigned_locker_id) REFERENCES lockers(locker_id)

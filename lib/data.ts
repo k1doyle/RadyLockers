@@ -2,12 +2,14 @@ export const LOCKER_STATUSES = ['AVAILABLE', 'ASSIGNED', 'PENDING_RETURN', 'RETU
 export const REQUEST_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'ASSIGNED', 'WAITLISTED', 'CLOSED', 'DECLINED'] as const;
 export const FEE_MODELS = ['DEPOSIT_50_WITH_25_REFUND', 'FLAT_25_NON_REFUNDABLE'] as const;
 export const REFUND_STATUSES = ['NOT_APPLICABLE', 'PENDING', 'COMPLETED', 'FORFEITED'] as const;
+export const ASSIGNMENT_EMAIL_STATUSES = ['SENT', 'FAILED'] as const;
 export const LOCKER_TYPE = 'OUTDOOR_METAL_COMBINATION' as const;
 
 export type LockerStatus = (typeof LOCKER_STATUSES)[number];
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 export type FeeModel = (typeof FEE_MODELS)[number];
 export type RefundStatus = (typeof REFUND_STATUSES)[number];
+export type AssignmentEmailStatus = (typeof ASSIGNMENT_EMAIL_STATUSES)[number];
 
 export type LockerRow = {
   locker_id: number;
@@ -49,6 +51,8 @@ export type AssignmentRow = {
   refund_status: RefundStatus;
   refund_date: string | null;
   payment_notes: string | null;
+  assignment_email_status: AssignmentEmailStatus | null;
+  assignment_email_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };
