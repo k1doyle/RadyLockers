@@ -100,6 +100,11 @@ export default async function AdminDashboard({
     getLockerAssignmentNotificationConfig(),
   ]);
   const metricMap = new Map(metrics.map((entry) => [entry.status, entry.count]));
+  const endingSoonCount = lockers.filter((locker) => {
+    if (!locker.latest_assignment_end_date) return false;
+    const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
+    return daysLeft >= 0 && daysLeft <= 14;
+  }).length;
   const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
   const showingStart = totalLockers ? (currentPage - 1) * pageSize + 1 : 0;
   const showingEnd = totalLockers ? Math.min(currentPage * pageSize, totalLockers) : 0;
@@ -139,10 +144,11 @@ export default async function AdminDashboard({
         {settingsSaved ? <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{settingsSaved}</div> : null}
         {settingsError ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{settingsError}</div> : null}
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment." tone="border-emerald-200" />
           <MetricCard label="Assigned lockers" value={metricMap.get('ASSIGNED') ?? 0} description="Currently checked out." tone="border-blue-200" />
           <MetricCard label="Pending return" value={metricMap.get('PENDING_RETURN') ?? 0} description="Awaiting return verification." tone="border-amber-200" />
+          <MetricCard label="Ending soon" value={endingSoonCount} description="Due within 14 days on this page." tone="border-amber-300" />
           <MetricCard label="Disabled lockers" value={metricMap.get('DISABLED') ?? 0} description="Unavailable for use." tone="border-slate-300" />
         </section>
 
