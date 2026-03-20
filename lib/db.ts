@@ -2,30 +2,43 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import { AuditLogRow, AssignmentRow, LockerRow, LockerStatus } from '@/lib/data';
+import { canUseLocalSqliteRuntime, describeConfiguredDatabase, getConfiguredDatabaseUrl, resolveLocalSqlitePath } from '@/lib/database-config';
 
 const rootDir = process.cwd();
-const dbFile = process.env.DATABASE_URL?.replace('file:', '') || './data/rady-lockers.db';
-const resolvedDbPath = path.resolve(rootDir, dbFile);
 const schemaPath = path.join(rootDir, 'db', 'schema.sql');
+const configuredDatabaseUrl = getConfiguredDatabaseUrl();
 
-fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-const db = new Database(resolvedDbPath);
-db.pragma('foreign_keys = ON');
-db.exec(fs.readFileSync(schemaPath, 'utf8'));
+let sqliteDb: Database.Database | null = null;
 
-function withTimestamp(fields: Record<string, unknown>) {
-  return { ...fields, updated_at: new Date().toISOString() };
+if (canUseLocalSqliteRuntime(configuredDatabaseUrl)) {
+  const resolvedDbPath = resolveLocalSqlitePath(configuredDatabaseUrl);
+
+  if (resolvedDbPath) {
+    fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
+    sqliteDb = new Database(resolvedDbPath);
+    sqliteDb.pragma('foreign_keys = ON');
+    sqliteDb.exec(fs.readFileSync(schemaPath, 'utf8'));
+  }
 }
 
-export { db };
+export function getDb() {
+  if (sqliteDb) return sqliteDb;
+
+  throw new Error(
+    `Local SQLite is unavailable because DATABASE_URL is configured as ${describeConfiguredDatabase(configuredDatabaseUrl)}. ` +
+    'This app still uses better-sqlite3 for persistence, so a hosted Postgres database is not wired in yet.',
+  );
+}
 
 export function createAuditLog(action: string, details: string, lockerId?: number, assignmentId?: number) {
+  const db = getDb();
   db.prepare(
     `INSERT INTO audit_logs (action, actor, details, locker_id, assignment_id) VALUES (?, 'admin', ?, ?, ?)`,
   ).run(action, details, lockerId ?? null, assignmentId ?? null);
 }
 
 export function getDashboardData(filters: { search?: string; status?: string; quarter?: string; location?: string }) {
+  const db = getDb();
   const clauses: string[] = [];
   const params: Array<string | LockerStatus> = [];
 
@@ -98,6 +111,7 @@ export function getDashboardData(filters: { search?: string; status?: string; qu
 }
 
 export function getLockerDetail(lockerId: number) {
+  const db = getDb();
   const locker = db.prepare(`SELECT * FROM lockers WHERE locker_id = ?`).get(lockerId) as LockerRow | undefined;
   if (!locker) return null;
   const assignments = db.prepare(`SELECT * FROM assignments WHERE assigned_locker_id = ? ORDER BY created_at DESC`).all(lockerId) as AssignmentRow[];
@@ -106,14 +120,17 @@ export function getLockerDetail(lockerId: number) {
 }
 
 export function getRequestDetail(requestId: number) {
+  const db = getDb();
   return db.prepare(`SELECT * FROM assignments WHERE request_id = ?`).get(requestId) as AssignmentRow | undefined;
 }
 
 export function getAvailableLockers() {
+  const db = getDb();
   return db.prepare(`SELECT * FROM lockers WHERE status IN ('AVAILABLE','RETURNED') ORDER BY location ASC, locker_number ASC`).all() as LockerRow[];
 }
 
 export function getCurrentAssignmentsExport() {
+  const db = getDb();
   return db.prepare(
     `SELECT a.*, l.locker_number, l.location, l.status AS locker_status, l.active_combo_index
      FROM assignments a
@@ -124,6 +141,7 @@ export function getCurrentAssignmentsExport() {
 }
 
 export function getHistoryExport() {
+  const db = getDb();
   return db.prepare(
     `SELECT a.*, l.locker_number, l.location
      FROM assignments a
@@ -133,5 +151,6 @@ export function getHistoryExport() {
 }
 
 export function getAllLockers() {
+  const db = getDb();
   return db.prepare(`SELECT * FROM lockers ORDER BY location ASC, locker_number ASC`).all() as LockerRow[];
 }

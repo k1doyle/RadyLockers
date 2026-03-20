@@ -1,5 +1,7 @@
-import { db } from '../lib/db';
+import { getDb } from '../lib/db';
 import { LOCKER_TYPE } from '../lib/data';
+
+const db = getDb();
 
 function reset() {
   db.exec(`
