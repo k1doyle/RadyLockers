@@ -172,8 +172,10 @@ export async function importLockers(formData: FormData) {
       : pastedCsv;
 
   if (!csvText) {
-    redirect('/admin?importError=' + encodeURIComponent('Upload a CSV file or paste CSV rows to import lockers.'));
+    redirect('/admin?importError=' + encodeURIComponent('Upload a CSV file or paste CSV rows to import lockers.') + '#locker-import');
   }
+
+  let destination = '/admin?importError=' + encodeURIComponent('Locker import failed.') + '#locker-import';
 
   try {
     const rows = parseCsv(csvText);
@@ -240,11 +242,13 @@ export async function importLockers(formData: FormData) {
     }
 
     const createdCount = await createLockerRecordsBulk(importedLockers);
-    redirect('/admin?imported=' + encodeURIComponent(String(createdCount)));
+    destination = '/admin?imported=' + encodeURIComponent(String(createdCount)) + '#locker-import';
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Locker import failed.';
-    redirect('/admin?importError=' + encodeURIComponent(message));
+    destination = '/admin?importError=' + encodeURIComponent(message) + '#locker-import';
   }
+
+  redirect(destination);
 }
 
 export async function updateLocker(formData: FormData) {

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
+import { ActionSubmitButton } from '@/components/action-submit-button';
 import { MetricCard } from '@/components/metric-card';
 import { StatusBadge } from '@/components/status-badge';
 import { createLocker, importLockers, updateNotificationSettings } from '@/app/actions';
@@ -227,7 +228,7 @@ export default async function AdminDashboard({
               </form>
             </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section id="locker-import" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm scroll-mt-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-brand-navy">Import lockers from CSV</h2>
@@ -237,7 +238,19 @@ export default async function AdminDashboard({
                   Download template
                 </Link>
               </div>
-              <form action={importLockers} className="mt-5 space-y-4">
+              {(imported || importError) ? (
+                <div
+                  aria-live="polite"
+                  className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
+                    imported
+                      ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border border-rose-200 bg-rose-50 text-rose-700'
+                  }`}
+                >
+                  {imported ? `Imported ${imported} lockers successfully.` : importError}
+                </div>
+              ) : null}
+              <form action={importLockers} encType="multipart/form-data" className="mt-5 space-y-4">
                 <input type="file" name="csv_file" accept=".csv,text/csv" className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:font-medium file:text-brand-navy" />
                 <textarea
                   name="csv_text"
@@ -248,7 +261,11 @@ export default async function AdminDashboard({
                   Expected columns: <span className="font-medium text-slate-900">locker_number</span>, optional <span className="font-medium text-slate-900">location</span>, <span className="font-medium text-slate-900">combo1</span>, optional <span className="font-medium text-slate-900">combo2</span>-<span className="font-medium text-slate-900">combo5</span>, <span className="font-medium text-slate-900">notes</span>, and <span className="font-medium text-slate-900">status</span>.
                   If <span className="font-medium text-slate-900">location</span> is blank, the locker imports as <span className="font-medium text-slate-900">{STANDARD_LOCKER_LOCATION}</span>. If <span className="font-medium text-slate-900">status</span> is blank, the locker imports as <span className="font-medium text-slate-900">Available</span>.
                 </div>
-                <button className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white">Import lockers</button>
+                <ActionSubmitButton
+                  idleLabel="Import lockers"
+                  pendingLabel="Importing lockers..."
+                  className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                />
               </form>
             </section>
 
