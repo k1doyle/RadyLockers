@@ -90,8 +90,10 @@ function formatDateTime(value: string) {
 
 function formatDate(value: string) {
   if (!value) return '';
-  const [year, month, day] = value.split('-').map(Number);
-  const localDate = new Date(year, (month || 1) - 1, day || 1);
+  const normalized = value.slice(0, 10);
+  const [year, month, day] = normalized.split('-').map(Number);
+  if (!year || !month || !day) return value;
+  const localDate = new Date(year, month - 1, day);
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
