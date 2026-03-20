@@ -226,8 +226,11 @@ export default async function AdminDashboard({
                         <StatusBadge status={request.request_status} />
                       </div>
                       <p className="mt-3 text-sm text-slate-600">{request.program} · {request.requested_quarter}</p>
-                      <Link href={`/admin/request/${request.request_id}`} className="mt-3 inline-flex text-sm font-medium text-brand-blue">
-                        Review request
+                      <Link
+                        href={`/admin/request/${request.request_id}`}
+                        className="mt-4 inline-flex items-center rounded-lg bg-brand-navy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#13233c]"
+                      >
+                        Review Request
                       </Link>
                     </div>
                   ))
