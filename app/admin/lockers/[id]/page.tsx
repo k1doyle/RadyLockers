@@ -18,6 +18,25 @@ function formatPacificDateTime(value: string | Date) {
     timeZone: 'America/Los_Angeles',
   }).format(date);
 }
+
+function formatPacificDate(value: string | Date) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  }).format(new Date(value));
+}
+
+function getDaysUntil(dateValue: string | Date) {
+  const today = new Date();
+  const target = new Date(dateValue);
+
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+
+  return Math.ceil((targetMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+}
 export default async function LockerDetailPage({
   params,
   searchParams,
@@ -36,6 +55,8 @@ export default async function LockerDetailPage({
   const { locker, assignments, auditLogs } = data;
   const activeAssignment = assignments.find((assignment) => assignment.request_status === 'ASSIGNED');
   const latestAssignment = assignments[0];
+  const activeAssignmentDaysLeft = activeAssignment?.assignment_end_date ? getDaysUntil(activeAssignment.assignment_end_date) : null;
+  const isActiveAssignmentEndingSoon = activeAssignmentDaysLeft !== null && activeAssignmentDaysLeft >= 0 && activeAssignmentDaysLeft <= 14;
   const locationOptions = Array.from(new Set([STANDARD_LOCKER_LOCATION, locker.location].filter(Boolean)));
 
   return (
@@ -158,9 +179,29 @@ export default async function LockerDetailPage({
               {activeAssignment ? (
                 <div className="mt-5 space-y-5 text-sm text-slate-600">
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="font-semibold text-slate-900">{activeAssignment.student_name}</p>
-                    <p>{activeAssignment.requested_quarter}</p>
-                    <p className="mt-2">Ends: {activeAssignment.assignment_end_date ? new Date(activeAssignment.assignment_end_date).toLocaleDateString() : 'Not set'}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{activeAssignment.student_name}</p>
+                        <p>{activeAssignment.requested_quarter}</p>
+                      </div>
+                      {isActiveAssignmentEndingSoon ? (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                          Ending Soon
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2">
+                      Ends: {activeAssignment.assignment_end_date ? formatPacificDate(activeAssignment.assignment_end_date) : 'Not set'}
+                    </p>
+                    {activeAssignmentDaysLeft !== null && activeAssignment.assignment_end_date ? (
+                      <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
+                        {activeAssignmentDaysLeft < 0
+                          ? `Past due by ${Math.abs(activeAssignmentDaysLeft)} day${Math.abs(activeAssignmentDaysLeft) === 1 ? '' : 's'}`
+                          : activeAssignmentDaysLeft === 0
+                            ? 'Due today'
+                            : `${activeAssignmentDaysLeft} day${activeAssignmentDaysLeft === 1 ? '' : 's'} left`}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <p className="font-semibold text-slate-900">Assignment email</p>
@@ -181,12 +222,14 @@ export default async function LockerDetailPage({
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
                     <input type="hidden" name="locker_id" value={locker.locker_id} />
                     <p className="font-semibold text-slate-900">Return initiated</p>
+                    <p className="text-sm text-slate-600">Next step: inspect the locker and confirm it is empty.</p>
                     <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Plan locker inspection</button>
                   </form>
                   <form action={closeAssignment} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
                     <input type="hidden" name="locker_id" value={locker.locker_id} />
                     <p className="font-semibold text-slate-900">Complete return</p>
+                    <p className="text-sm text-slate-600">Resets locker for next student and advances combination.</p>
                     <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Reset locker</button>
                   </form>
                 </div>

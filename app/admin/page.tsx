@@ -20,6 +20,34 @@ import {
 import { getDashboardData } from '@/lib/queries';
 import { formatStatus } from '@/lib/utils';
 
+function formatPacificDate(value: string | Date) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  }).format(new Date(value));
+}
+
+function getDaysLeft(value: string | Date) {
+  const pacificDateFormatter = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  });
+  const getPacificMidnight = (date: Date) => {
+    const parts = pacificDateFormatter.formatToParts(date);
+    const year = Number(parts.find((part) => part.type === 'year')?.value ?? 0);
+    const month = Number(parts.find((part) => part.type === 'month')?.value ?? 1);
+    const day = Number(parts.find((part) => part.type === 'day')?.value ?? 1);
+
+    return Date.UTC(year, month - 1, day);
+  };
+
+  return Math.max(0, Math.ceil((getPacificMidnight(new Date(value)) - getPacificMidnight(new Date())) / (1000 * 60 * 60 * 24)));
+}
+
 export default async function AdminDashboard({
   searchParams,
 }: {
@@ -161,24 +189,38 @@ export default async function AdminDashboard({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {lockers.length ? (
-                    lockers.map((locker) => (
-                      <tr key={locker.locker_id}>
-                        <td className="py-4 pr-4 font-semibold text-brand-navy">{locker.locker_number}</td>
-                        <td className="py-4 pr-4 text-slate-600">{locker.location}</td>
-                        <td className="py-4 pr-4"><StatusBadge status={locker.status} /></td>
-                        <td className="py-4 pr-4 text-slate-600">{locker.latest_student_name ?? '—'}</td>
-                        <td className="py-4 pr-4 text-slate-600">{locker.latest_requested_quarter ?? '—'}</td>
-                        <td className="py-4 pr-4 text-slate-600">
-                          {locker.active_combo_index}
-                          {locker.active_combo_index === 5 ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Review</span> : null}
-                        </td>
-                        <td className="py-4">
-                          <Link href={`/admin/lockers/${locker.locker_id}`} className="font-medium text-brand-blue">
-                            View details
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                    lockers.map((locker) => {
+                      const daysLeft = locker.latest_assignment_end_date ? getDaysLeft(locker.latest_assignment_end_date) : null;
+
+                      return (
+                        <tr key={locker.locker_id}>
+                          <td className="py-4 pr-4 font-semibold text-brand-navy">{locker.locker_number}</td>
+                          <td className="py-4 pr-4 text-slate-600">{locker.location}</td>
+                          <td className="py-4 pr-4"><StatusBadge status={locker.status} /></td>
+                          <td className="py-4 pr-4 text-slate-600">{locker.latest_student_name ?? '—'}</td>
+                          <td className="py-4 pr-4 text-slate-600">
+                            <div className="space-y-1">
+                              <p>{locker.latest_requested_quarter ?? '—'}</p>
+                              {locker.latest_assignment_end_date ? (
+                                <>
+                                  <p className="text-xs text-slate-500">Ends {formatPacificDate(locker.latest_assignment_end_date)}</p>
+                                  <p className="text-xs text-slate-500">{daysLeft} {daysLeft === 1 ? 'day left' : 'days left'}</p>
+                                </>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="py-4 pr-4 text-slate-600">
+                            {locker.active_combo_index}
+                            {locker.active_combo_index === 5 ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Review</span> : null}
+                          </td>
+                          <td className="py-4">
+                            <Link href={`/admin/lockers/${locker.locker_id}`} className="font-medium text-brand-blue">
+                              View details
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-sm text-slate-500">

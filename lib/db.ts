@@ -35,6 +35,7 @@ type DashboardLockerRow = LockerRow & {
   latest_program: string | null;
   latest_requested_quarter: string | null;
   latest_request_status: string | null;
+  latest_assignment_end_date?: string | null;
 };
 
 type DashboardMetricRow = {
@@ -256,6 +257,7 @@ function mapDashboardLockerRow(row: Record<string, unknown>): DashboardLockerRow
     latest_program: row.latest_program == null ? null : String(row.latest_program),
     latest_requested_quarter: row.latest_requested_quarter == null ? null : String(row.latest_requested_quarter),
     latest_request_status: row.latest_request_status == null ? null : String(row.latest_request_status),
+    latest_assignment_end_date: row.latest_assignment_end_date == null ? null : String(row.latest_assignment_end_date),
   };
 }
 
@@ -1091,7 +1093,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
         a.ucsd_email AS latest_ucsd_email,
         a.program AS latest_program,
         a.requested_quarter AS latest_requested_quarter,
-        a.request_status AS latest_request_status
+        a.request_status AS latest_request_status,
+        a.assignment_end_date AS latest_assignment_end_date
       FROM lockers l
       LEFT JOIN assignments a ON a.request_id = (
         SELECT a1.request_id FROM assignments a1 WHERE a1.assigned_locker_id = l.locker_id ORDER BY a1.created_at DESC LIMIT 1
@@ -1176,7 +1179,8 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
           a.ucsd_email AS latest_ucsd_email,
           a.program AS latest_program,
           a.requested_quarter AS latest_requested_quarter,
-          a.request_status AS latest_request_status
+          a.request_status AS latest_request_status,
+          a.assignment_end_date AS latest_assignment_end_date
         FROM lockers l
         LEFT JOIN assignments a ON a.request_id = (
           SELECT a1.request_id FROM assignments a1 WHERE a1.assigned_locker_id = l.locker_id ORDER BY a1.created_at DESC LIMIT 1
