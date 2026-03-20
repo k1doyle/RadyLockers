@@ -32,6 +32,11 @@ export default async function AdminDashboard({
   const importError = typeof params.importError === 'string' ? params.importError : '';
   const settingsSaved = typeof params.settingsSaved === 'string' ? params.settingsSaved : '';
   const settingsError = typeof params.settingsError === 'string' ? params.settingsError : '';
+  const filterSearch = typeof params.search === 'string' ? params.search : '';
+  const filterStatus = typeof params.status === 'string' ? params.status : '';
+  const filterQuarter = typeof params.quarter === 'string' ? params.quarter : '';
+  const requestedPage = Number.parseInt(typeof params.page === 'string' ? params.page : '1', 10);
+  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   if (!adminDataAvailable) {
     return (
@@ -54,17 +59,31 @@ export default async function AdminDashboard({
     );
   }
 
-  const [{ lockers, requests, metrics }, requestNotificationConfig, assignmentNotificationConfig] = await Promise.all([
+  const [{ lockers, requests, metrics, totalLockers, currentPage, pageSize }, requestNotificationConfig, assignmentNotificationConfig] = await Promise.all([
     getDashboardData({
-      search: typeof params.search === 'string' ? params.search : '',
-      status: typeof params.status === 'string' ? params.status : '',
-      quarter: typeof params.quarter === 'string' ? params.quarter : '',
+      search: filterSearch,
+      status: filterStatus,
+      quarter: filterQuarter,
       location: '',
+      page,
+      pageSize: 25,
     }),
     getLockerRequestNotificationConfig(),
     getLockerAssignmentNotificationConfig(),
   ]);
   const metricMap = new Map(metrics.map((entry) => [entry.status, entry.count]));
+  const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
+  const showingStart = totalLockers ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = totalLockers ? Math.min(currentPage * pageSize, totalLockers) : 0;
+  const buildPageHref = (nextPage: number) => {
+    const search = new URLSearchParams();
+    if (filterSearch) search.set('search', filterSearch);
+    if (filterStatus) search.set('status', filterStatus);
+    if (filterQuarter) search.set('quarter', filterQuarter);
+    if (nextPage > 1) search.set('page', String(nextPage));
+    const query = search.toString();
+    return query ? `/admin?${query}` : '/admin';
+  };
 
   return (
     <AdminShell>
@@ -108,14 +127,14 @@ export default async function AdminDashboard({
               </div>
             </div>
             <form className="mt-6 grid gap-4 md:grid-cols-3">
-              <input name="search" defaultValue={typeof params.search === 'string' ? params.search : ''} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-              <select name="status" defaultValue={typeof params.status === 'string' ? params.status : ''} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
+              <input name="search" defaultValue={filterSearch} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+              <select name="status" defaultValue={filterStatus} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
                 <option value="">All statuses</option>
                 {lockerStatuses.map((status) => (
                   <option key={status} value={status}>{formatStatus(status)}</option>
                 ))}
               </select>
-              <select name="quarter" defaultValue={typeof params.quarter === 'string' ? params.quarter : ''} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
+              <select name="quarter" defaultValue={filterQuarter} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
                 <option value="">All quarters</option>
                 {quarters.map((quarter) => (
                   <option key={quarter} value={quarter}>{quarter}</option>
@@ -141,26 +160,54 @@ export default async function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lockers.map((locker) => (
-                    <tr key={locker.locker_id}>
-                      <td className="py-4 pr-4 font-semibold text-brand-navy">{locker.locker_number}</td>
-                      <td className="py-4 pr-4 text-slate-600">{locker.location}</td>
-                      <td className="py-4 pr-4"><StatusBadge status={locker.status} /></td>
-                      <td className="py-4 pr-4 text-slate-600">{locker.latest_student_name ?? '—'}</td>
-                      <td className="py-4 pr-4 text-slate-600">{locker.latest_requested_quarter ?? '—'}</td>
-                      <td className="py-4 pr-4 text-slate-600">
-                        {locker.active_combo_index}
-                        {locker.active_combo_index === 5 ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Review</span> : null}
-                      </td>
-                      <td className="py-4">
-                        <Link href={`/admin/lockers/${locker.locker_id}`} className="font-medium text-brand-blue">
-                          View details
-                        </Link>
+                  {lockers.length ? (
+                    lockers.map((locker) => (
+                      <tr key={locker.locker_id}>
+                        <td className="py-4 pr-4 font-semibold text-brand-navy">{locker.locker_number}</td>
+                        <td className="py-4 pr-4 text-slate-600">{locker.location}</td>
+                        <td className="py-4 pr-4"><StatusBadge status={locker.status} /></td>
+                        <td className="py-4 pr-4 text-slate-600">{locker.latest_student_name ?? '—'}</td>
+                        <td className="py-4 pr-4 text-slate-600">{locker.latest_requested_quarter ?? '—'}</td>
+                        <td className="py-4 pr-4 text-slate-600">
+                          {locker.active_combo_index}
+                          {locker.active_combo_index === 5 ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800">Review</span> : null}
+                        </td>
+                        <td className="py-4">
+                          <Link href={`/admin/lockers/${locker.locker_id}`} className="font-medium text-brand-blue">
+                            View details
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-sm text-slate-500">
+                        No lockers matched the current filters.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-5 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <p>Showing {showingStart}-{showingEnd} of {totalLockers} lockers</p>
+              <div className="flex items-center gap-3">
+                {currentPage > 1 ? (
+                  <Link href={buildPageHref(currentPage - 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700">
+                    Previous
+                  </Link>
+                ) : (
+                  <span className="rounded-xl border border-slate-200 px-4 py-2 text-slate-300">Previous</span>
+                )}
+                <span className="font-medium text-slate-700">Page {currentPage} of {totalPages}</span>
+                {currentPage < totalPages ? (
+                  <Link href={buildPageHref(currentPage + 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700">
+                    Next
+                  </Link>
+                ) : (
+                  <span className="rounded-xl border border-slate-200 px-4 py-2 text-slate-300">Next</span>
+                )}
+              </div>
             </div>
           </div>
 

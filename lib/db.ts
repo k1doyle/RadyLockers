@@ -23,6 +23,8 @@ type DashboardFilters = {
   status?: string;
   quarter?: string;
   location?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 type DashboardLockerRow = LockerRow & {
@@ -893,7 +895,13 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
   requests: AssignmentRow[];
   metrics: DashboardMetricRow[];
   locations: DashboardLocationRow[];
+  totalLockers: number;
+  currentPage: number;
+  pageSize: number;
 }> {
+  const requestedPage = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.max(1, filters.pageSize ?? 25);
+
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
     const clauses: string[] = [];
@@ -957,11 +965,20 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
     const metrics = db.prepare(`SELECT status, COUNT(*) as count FROM lockers GROUP BY status`).all() as Record<string, unknown>[];
     const locations = db.prepare(`SELECT DISTINCT location FROM lockers ORDER BY location ASC`).all() as Record<string, unknown>[];
 
+    const sortedLockers = sortLockersNaturally(lockers.map(mapDashboardLockerRow));
+    const totalLockers = sortedLockers.length;
+    const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
+    const currentPage = Math.min(requestedPage, totalPages);
+    const startIndex = (currentPage - 1) * pageSize;
+
     return {
-      lockers: sortLockersNaturally(lockers.map(mapDashboardLockerRow)),
+      lockers: sortedLockers.slice(startIndex, startIndex + pageSize),
       requests: requests.map(mapAssignmentRow),
       metrics: metrics.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locations.map((entry) => ({ location: String(entry.location) })),
+      totalLockers,
+      currentPage,
+      pageSize,
     };
   }
 
@@ -1037,11 +1054,20 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
       ),
     ]);
 
+    const sortedLockers = sortLockersNaturally(lockersResult.rows.map((row) => mapDashboardLockerRow(row as Record<string, unknown>)));
+    const totalLockers = sortedLockers.length;
+    const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
+    const currentPage = Math.min(requestedPage, totalPages);
+    const startIndex = (currentPage - 1) * pageSize;
+
     return {
-      lockers: sortLockersNaturally(lockersResult.rows.map((row) => mapDashboardLockerRow(row as Record<string, unknown>))),
+      lockers: sortedLockers.slice(startIndex, startIndex + pageSize),
       requests: requestsResult.rows.map((row) => mapAssignmentRow(row as Record<string, unknown>)),
       metrics: metricsResult.rows.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locationsResult.rows.map((entry) => ({ location: String(entry.location) })),
+      totalLockers,
+      currentPage,
+      pageSize,
     };
   }
 
