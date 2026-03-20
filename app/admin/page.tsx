@@ -191,6 +191,7 @@ export default async function AdminDashboard({
                   {lockers.length ? (
                     lockers.map((locker) => {
                       const daysLeft = locker.latest_assignment_end_date ? getDaysLeft(locker.latest_assignment_end_date) : null;
+                      const isEndingSoon = daysLeft !== null && daysLeft <= 14;
 
                       return (
                         <tr key={locker.locker_id}>
@@ -201,6 +202,11 @@ export default async function AdminDashboard({
                           <td className="py-4 pr-4 text-slate-600">
                             <div className="space-y-1">
                               <p>{locker.latest_requested_quarter ?? '—'}</p>
+                              {isEndingSoon ? (
+                                <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                                  Ending Soon
+                                </span>
+                              ) : null}
                               {locker.latest_assignment_end_date ? (
                                 <>
                                   <p className="text-xs text-slate-500">Ends {formatPacificDate(locker.latest_assignment_end_date)}</p>
