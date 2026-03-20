@@ -79,32 +79,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-12">
-          <div className="grid gap-8 lg:grid-cols-2">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">How it works</p>
-              <div className="mt-6 space-y-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">1. Submit your request</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Apply for the academic quarter you need. Confirmation is sent right away.
-                  </p>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">2. Staff review</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Rady Student Affairs reviews availability and program eligibility within a few days.
-                  </p>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">3. Receive your assignment</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Approved students receive locker assignment and payment details through their UCSD email.
-                  </p>
-                </div>
-              </div>
-            </div>
-
+        <section className="mx-auto max-w-6xl px-6 py-10">
+          <div className="grid gap-8">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">What to know before you apply</p>
               <div className="mt-6 space-y-6">
@@ -129,7 +105,7 @@ export default function HomePage() {
               </div>
 
               <div className="mt-8 border-t border-slate-200 pt-6 text-sm text-slate-500">
-                Questions about locker eligibility, assignments, or returns? Contact Rady Student Affairs.
+                Questions? Contact Rady Student Affairs.
               </div>
             </div>
           </div>
