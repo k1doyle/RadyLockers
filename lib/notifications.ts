@@ -89,10 +89,14 @@ function formatDateTime(value: string) {
 }
 
 function formatDate(value: string) {
+  if (!value) return '';
+  const [year, month, day] = value.split('-').map(Number);
+  const localDate = new Date(year, (month || 1) - 1, day || 1);
   return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'long',
-    timeZone: 'America/Los_Angeles',
-  }).format(new Date(value));
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(localDate);
 }
 
 export async function getLockerRequestNotificationConfig(): Promise<NotificationConfig> {
