@@ -38,7 +38,7 @@ const operationsHighlights = [
   },
 ];
 
-const trustSignals = ['Managed by Rady Student Affairs', 'Student data is not publicly exposed'];
+const trustSignals = ['Managed by Rady Student Affairs'];
 
 export default function HomePage() {
   return (
