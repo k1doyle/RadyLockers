@@ -2,29 +2,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { SiteShell } from '@/components/site-shell';
 
-const studentInfo = [
-  {
-    title: 'Eligibility',
-    description: 'Current Rady students and approved Rady affiliates may submit a locker request. Assignments are limited and based on availability.',
-  },
-  {
-    title: 'Assignment Period',
-    description: 'Lockers are typically assigned for one academic quarter. Students may request to renew for additional quarters, depending on availability and demand.',
-  },
-  {
-    title: 'Return Expectations',
-    description: 'Lockers must be emptied and returned by the posted end-of-quarter deadline. Late or incomplete returns may affect deposit refunds and future eligibility.',
-  },
-];
-
-const workflowSteps = [
-  'Submit your request for the academic quarter you need.',
-  'Rady Student Affairs reviews availability and program eligibility.',
-  'Approved students receive locker assignment and payment details by UCSD email.',
-];
-
-const trustSignals = ['Managed by Rady Student Affairs'];
-
 export default function HomePage() {
   return (
     <SiteShell>
@@ -58,16 +35,8 @@ export default function HomePage() {
                 >
                   Request a Locker
                 </Link>
-                <Link href="/admin/login" className="text-sm font-semibold text-brand-blue transition hover:text-brand-navy">
-                  Staff Login
-                </Link>
               </div>
               <p className="mt-3 text-sm text-slate-500">Limited availability. Requests are reviewed in the order received.</p>
-              <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-500">
-                {trustSignals.map((signal) => (
-                  <p key={signal}>{signal}</p>
-                ))}
-              </div>
             </div>
 
             <div className="space-y-5">
@@ -110,41 +79,57 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-6 py-14">
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+        <section className="mx-auto max-w-6xl px-6 py-12">
+          <div className="grid gap-8 lg:grid-cols-2">
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Request Process</p>
-              <h2 className="mt-3 text-3xl font-semibold text-brand-navy">Simple quarter-based review</h2>
-              <p className="mt-4 text-sm leading-7 text-slate-600">
-                Requests are reviewed by staff and assigned based on program eligibility and current availability.
-              </p>
-              <ol className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
-                {workflowSteps.map((step, index) => (
-                  <li key={step} className="flex gap-4 rounded-2xl bg-slate-50 px-4 py-4">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-navy text-sm font-semibold text-white">
-                      {index + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">How it works</p>
+              <div className="mt-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">1. Submit your request</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Apply for the academic quarter you need. Confirmation is sent right away.
+                  </p>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">2. Staff review</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Rady Student Affairs reviews availability and program eligibility within a few days.
+                  </p>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">3. Receive your assignment</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Approved students receive locker assignment and payment details through their UCSD email.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="max-w-3xl">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Student Information</p>
-                <h2 className="mt-3 text-3xl font-semibold text-brand-navy">Before you request</h2>
-                <p className="mt-4 text-sm leading-7 text-slate-600">
-                  Review the basic program rules and expectations before submitting a quarter request.
-                </p>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">What to know before you apply</p>
+              <div className="mt-6 space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">Eligibility</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Open to current Rady students and approved Rady affiliates. Assignments are limited and based on availability.
+                  </p>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">Pricing and renewal</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    The total cost is $50 per quarter, including a $25 refundable deposit and a $25 rental fee. Students may request to renew for additional quarters.
+                  </p>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-brand-navy">Return expectations</h2>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Lockers must be emptied and returned by the posted end-of-quarter deadline so deposits can be refunded appropriately.
+                  </p>
+                </div>
               </div>
-              <div className="mt-8 grid gap-5 md:grid-cols-3">
-                {studentInfo.map((item) => (
-                  <article key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-                    <h3 className="text-lg font-semibold text-brand-navy">{item.title}</h3>
-                    <p className="mt-3 text-sm leading-7 text-slate-600">{item.description}</p>
-                  </article>
-                ))}
+
+              <div className="mt-8 border-t border-slate-200 pt-6 text-sm text-slate-500">
+                Questions about locker eligibility, assignments, or returns? Contact Rady Student Affairs.
               </div>
             </div>
           </div>
