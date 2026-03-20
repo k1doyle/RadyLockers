@@ -73,6 +73,8 @@ type CreateLockerInput = {
   updated_at: string;
 };
 
+type BulkCreateLockerInput = CreateLockerInput[];
+
 type UpdateLockerInput = Omit<CreateLockerInput, 'created_at'> & {
   locker_id: number;
   updated_at: string;
@@ -395,6 +397,75 @@ export async function createLockerRecord(input: CreateLockerInput) {
       ],
     );
     return;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function createLockerRecordsBulk(inputs: BulkCreateLockerInput) {
+  if (!inputs.length) return 0;
+
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    const insertLocker = db.prepare(`
+      INSERT INTO lockers (
+        locker_number, location, locker_type, status, combo_1, combo_2, combo_3, combo_4, combo_5,
+        active_combo_index, notes, disabled_reason, created_at, updated_at
+      ) VALUES (?, ?, 'OUTDOOR_METAL_COMBINATION', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const transaction = db.transaction((records: BulkCreateLockerInput) => {
+      for (const input of records) {
+        insertLocker.run(
+          input.locker_number,
+          input.location,
+          input.status,
+          input.combo_1,
+          input.combo_2,
+          input.combo_3,
+          input.combo_4,
+          input.combo_5,
+          input.active_combo_index,
+          input.notes,
+          input.disabled_reason,
+          input.created_at,
+          input.updated_at,
+        );
+      }
+    });
+
+    transaction(inputs);
+    return inputs.length;
+  }
+
+  if (databaseMode === 'postgres') {
+    await postgresTransaction(async (client) => {
+      for (const input of inputs) {
+        await client.query(
+          `INSERT INTO lockers (
+            locker_number, location, locker_type, status, combo_1, combo_2, combo_3, combo_4, combo_5,
+            active_combo_index, notes, disabled_reason, created_at, updated_at
+          ) VALUES ($1, $2, 'OUTDOOR_METAL_COMBINATION', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            input.locker_number,
+            input.location,
+            input.status,
+            input.combo_1,
+            input.combo_2,
+            input.combo_3,
+            input.combo_4,
+            input.combo_5,
+            input.active_combo_index,
+            input.notes,
+            input.disabled_reason,
+            input.created_at,
+            input.updated_at,
+          ],
+        );
+      }
+    });
+
+    return inputs.length;
   }
 
   throw unsupportedDatabaseError();
