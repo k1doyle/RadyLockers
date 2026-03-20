@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { ADMIN_COOKIE } from '@/lib/auth';
 import { FEE_MODELS, LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
+import { normalizeCsvHeader, parseCsv } from '@/lib/csv';
 import { areRequestSubmissionsAvailable, REQUEST_SUBMISSION_UNAVAILABLE_MESSAGE } from '@/lib/request-submissions';
 import {
   advanceComboRecord,
@@ -15,6 +16,7 @@ import {
   createAssignmentRequest,
   createAuditLog,
   createLockerRecord,
+  createLockerRecordsBulk,
   markPendingReturnRecord,
   updateLockerRecord,
 } from '@/lib/db';
@@ -111,6 +113,115 @@ export async function createLocker(formData: FormData) {
   });
 
   redirect('/admin');
+}
+
+const lockerImportHeaderMap: Record<string, string> = {
+  lockernumber: 'locker_number',
+  locker: 'locker_number',
+  location: 'location',
+  combination1: 'combo_1',
+  combo1: 'combo_1',
+  currentcombination: 'combo_1',
+  currentcombo: 'combo_1',
+  combination: 'combo_1',
+  combination2: 'combo_2',
+  combo2: 'combo_2',
+  combination3: 'combo_3',
+  combo3: 'combo_3',
+  combination4: 'combo_4',
+  combo4: 'combo_4',
+  combination5: 'combo_5',
+  combo5: 'combo_5',
+  notes: 'notes',
+  status: 'status',
+};
+
+export async function importLockers(formData: FormData) {
+  const uploadedFile = formData.get('csv_file');
+  const pastedCsv = String(formData.get('csv_text') || '').trim();
+  const csvText =
+    uploadedFile instanceof File && uploadedFile.size > 0
+      ? await uploadedFile.text()
+      : pastedCsv;
+
+  if (!csvText) {
+    redirect('/admin?importError=' + encodeURIComponent('Upload a CSV file or paste CSV rows to import lockers.'));
+  }
+
+  try {
+    const rows = parseCsv(csvText);
+    if (rows.length < 2) {
+      throw new Error('The import file needs a header row and at least one locker row.');
+    }
+
+    const rawHeaders = rows[0];
+    const headers = rawHeaders.map((header) => lockerImportHeaderMap[normalizeCsvHeader(header)] || '');
+
+    if (!headers.includes('locker_number') || !headers.includes('location') || !headers.includes('combo_1')) {
+      throw new Error('CSV must include locker number, location, and combination 1 columns.');
+    }
+
+    const now = new Date().toISOString();
+    const importedLockers = [];
+
+    for (const [index, row] of rows.slice(1).entries()) {
+      const record = Object.fromEntries(
+        headers
+          .map((header, headerIndex) => [header, row[headerIndex]?.trim() ?? ''])
+          .filter(([header]) => header),
+      ) as Record<string, string>;
+
+      if (!Object.values(record).some((value) => value)) continue;
+
+      const rowNumber = index + 2;
+      const lockerNumber = record.locker_number?.trim();
+      const location = record.location?.trim();
+      const combo1 = record.combo_1?.trim();
+      const status = (record.status?.trim() || 'AVAILABLE').toUpperCase();
+
+      if (!lockerNumber) {
+        throw new Error(`Row ${rowNumber}: locker number is required.`);
+      }
+
+      if (!location) {
+        throw new Error(`Row ${rowNumber}: location is required.`);
+      }
+
+      if (!combo1) {
+        throw new Error(`Row ${rowNumber}: combination 1 is required.`);
+      }
+
+      if (!LOCKER_STATUSES.includes(status as never)) {
+        throw new Error(`Row ${rowNumber}: status "${record.status}" is not valid.`);
+      }
+
+      importedLockers.push({
+        locker_number: lockerNumber,
+        location,
+        status,
+        combo_1: combo1,
+        combo_2: record.combo_2?.trim() || '',
+        combo_3: record.combo_3?.trim() || '',
+        combo_4: record.combo_4?.trim() || '',
+        combo_5: record.combo_5?.trim() || '',
+        active_combo_index: 1,
+        notes: record.notes?.trim() || null,
+        disabled_reason: null,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    if (!importedLockers.length) {
+      throw new Error('No locker rows were found to import.');
+    }
+
+    const createdCount = await createLockerRecordsBulk(importedLockers);
+    redirect('/admin?imported=' + encodeURIComponent(String(createdCount)));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Locker import failed.';
+    redirect('/admin?importError=' + encodeURIComponent(message));
+  }
 }
 
 export async function updateLocker(formData: FormData) {

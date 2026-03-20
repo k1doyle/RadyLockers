@@ -5,7 +5,7 @@ import { AdminShell } from '@/components/admin-shell';
 import { StatusBadge } from '@/components/status-badge';
 import { requireAdmin } from '@/lib/auth';
 import { getAvailableLockers, getRequestDetail } from '@/lib/db';
-import { formatStatus } from '@/lib/utils';
+import { formatFeeModel } from '@/lib/utils';
 
 export default async function RequestReviewPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -22,7 +22,7 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
         <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Request Review</p>
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Review Locker Request</p>
               <h1 className="mt-2 text-3xl font-semibold text-brand-navy">{request.student_name}</h1>
               <p className="mt-2 text-sm text-slate-500">{request.ucsd_email} · {request.program}</p>
             </div>
@@ -82,8 +82,8 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                 <label className="block font-medium">
                   Fee model
                   <select name="fee_model" defaultValue={request.fee_model} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
-                    <option value="FLAT_25_NON_REFUNDABLE">{formatStatus('FLAT_25_NON_REFUNDABLE')}</option>
-                    <option value="DEPOSIT_50_WITH_25_REFUND">{formatStatus('DEPOSIT_50_WITH_25_REFUND')}</option>
+                    <option value="FLAT_25_NON_REFUNDABLE">{formatFeeModel('FLAT_25_NON_REFUNDABLE')}</option>
+                    <option value="DEPOSIT_50_WITH_25_REFUND">{formatFeeModel('DEPOSIT_50_WITH_25_REFUND')}</option>
                   </select>
                 </label>
                 <div className="grid gap-4 md:grid-cols-2">

@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { lockerStatuses } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
 import { getLockerDetail } from '@/lib/db';
-import { formatCurrency, formatStatus, getComboValue } from '@/lib/utils';
+import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
 
 export default async function LockerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -61,10 +61,10 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
                 </label>
                 <TextField name="active_combo_index" label="Active combo index" type="number" required defaultValue={locker.active_combo_index} />
                 <TextField name="combo_1" label="Combination 1" required defaultValue={locker.combo_1} />
-                <TextField name="combo_2" label="Combination 2" required defaultValue={locker.combo_2} />
-                <TextField name="combo_3" label="Combination 3" required defaultValue={locker.combo_3} />
-                <TextField name="combo_4" label="Combination 4" required defaultValue={locker.combo_4} />
-                <TextField name="combo_5" label="Combination 5" required defaultValue={locker.combo_5} />
+                <TextField name="combo_2" label="Combination 2" defaultValue={locker.combo_2} />
+                <TextField name="combo_3" label="Combination 3" defaultValue={locker.combo_3} />
+                <TextField name="combo_4" label="Combination 4" defaultValue={locker.combo_4} />
+                <TextField name="combo_5" label="Combination 5" defaultValue={locker.combo_5} />
                 <div className="md:col-span-2">
                   <TextAreaField name="notes" label="Notes" defaultValue={locker.notes} />
                 </div>
@@ -93,7 +93,7 @@ export default async function LockerDetailPage({ params }: { params: Promise<{ i
                       <div className="mt-3 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
                         <p>Quarter: {assignment.requested_quarter}</p>
                         <p>Rental period: {assignment.requested_rental_period ?? 'Not provided'}</p>
-                        <p>Fee model: {formatStatus(assignment.fee_model)}</p>
+                        <p>Fee model: {formatFeeModel(assignment.fee_model)}</p>
                         <p>Charged: {formatCurrency(assignment.amount_charged)}</p>
                         <p>Refundable: {formatCurrency(assignment.refundable_amount)}</p>
                         <p>Renewal requested: {assignment.renewal_requested ? 'Yes' : 'No'}</p>

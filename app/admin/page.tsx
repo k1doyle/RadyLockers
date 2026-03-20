@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
 import { MetricCard } from '@/components/metric-card';
 import { StatusBadge } from '@/components/status-badge';
-import { createLocker } from '@/app/actions';
+import { createLocker, importLockers } from '@/app/actions';
 import { lockerStatuses, quarters } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
 import { canUseDatabaseRuntime, describeConfiguredDatabase, getConfiguredDatabaseUrl } from '@/lib/database-config';
@@ -17,13 +17,15 @@ export default async function AdminDashboard({
   await requireAdmin();
   const params = await searchParams;
   const adminDataAvailable = canUseDatabaseRuntime();
+  const imported = typeof params.imported === 'string' ? params.imported : '';
+  const importError = typeof params.importError === 'string' ? params.importError : '';
 
   if (!adminDataAvailable) {
     return (
       <AdminShell>
         <div className="mx-auto max-w-4xl px-6 py-8">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Operations Dashboard</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Rady Locker Dashboard</p>
             <h1 className="mt-2 text-3xl font-semibold text-brand-navy">Admin data is temporarily unavailable</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
               This deployment is configured with {describeConfiguredDatabase(getConfiguredDatabaseUrl())}, but no supported runtime database adapter is available. The page is rendering safely, but live locker inventory, requests, exports, and admin updates are unavailable in this environment until database access is configured correctly.
@@ -52,10 +54,10 @@ export default async function AdminDashboard({
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Operations Dashboard</p>
-            <h1 className="mt-2 text-3xl font-semibold text-brand-navy">Outdoor locker inventory</h1>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Rady Locker Dashboard</p>
+            <h1 className="mt-2 text-3xl font-semibold text-brand-navy">Locker inventory and request queue</h1>
             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
-              Manage locker supply, assign requests, process returns, rotate combination positions, and export operational data.
+              Monitor locker availability, review student requests, assign lockers, and manage return workflow from one place.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -68,11 +70,14 @@ export default async function AdminDashboard({
           </div>
         </div>
 
+        {imported ? <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Imported {imported} lockers successfully.</div> : null}
+        {importError ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{importError}</div> : null}
+
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment this quarter." />
-          <MetricCard label="Assigned lockers" value={metricMap.get('ASSIGNED') ?? 0} description="Currently occupied by active students." />
-          <MetricCard label="Pending return" value={metricMap.get('PENDING_RETURN') ?? 0} description="Awaiting empty-check verification and closeout." />
-          <MetricCard label="Disabled lockers" value={metricMap.get('DISABLED') ?? 0} description="Unavailable pending facilities or staff review." />
+          <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment." tone="border-emerald-200" />
+          <MetricCard label="Assigned lockers" value={metricMap.get('ASSIGNED') ?? 0} description="Currently checked out." tone="border-blue-200" />
+          <MetricCard label="Pending return" value={metricMap.get('PENDING_RETURN') ?? 0} description="Awaiting return verification." tone="border-amber-200" />
+          <MetricCard label="Disabled lockers" value={metricMap.get('DISABLED') ?? 0} description="Unavailable for use." tone="border-slate-300" />
         </section>
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
@@ -148,7 +153,7 @@ export default async function AdminDashboard({
 
           <div className="space-y-6">
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-brand-navy">Open student requests</h2>
+              <h2 className="text-xl font-semibold text-brand-navy">Open requests</h2>
               <div className="mt-5 space-y-4">
                 {requests.length ? (
                   requests.map((request) => (
@@ -173,16 +178,42 @@ export default async function AdminDashboard({
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-brand-navy">Create locker</h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-brand-navy">Import lockers from CSV</h2>
+                  <p className="mt-2 text-sm text-slate-500">Use this to load initial locker inventory from a spreadsheet export or cleaned CSV.</p>
+                </div>
+                <Link href="/api/import/lockers-template" className="text-sm font-semibold text-brand-blue">
+                  Download template
+                </Link>
+              </div>
+              <form action={importLockers} className="mt-5 space-y-4">
+                <input type="file" name="csv_file" accept=".csv,text/csv" className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:font-medium file:text-brand-navy" />
+                <textarea
+                  name="csv_text"
+                  placeholder={'locker_number,location,combo1,notes,status\nOM-101,Rady Courtyard East,12-24-08,Near faculty entrance,AVAILABLE'}
+                  className="min-h-28 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                />
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+                  Expected columns: <span className="font-medium text-slate-900">locker_number</span>, <span className="font-medium text-slate-900">location</span>, <span className="font-medium text-slate-900">combo1</span>, optional <span className="font-medium text-slate-900">combo2</span>-<span className="font-medium text-slate-900">combo5</span>, <span className="font-medium text-slate-900">notes</span>, and <span className="font-medium text-slate-900">status</span>.
+                  If <span className="font-medium text-slate-900">status</span> is blank, the locker imports as <span className="font-medium text-slate-900">Available</span>.
+                </div>
+                <button className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white">Import lockers</button>
+              </form>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-brand-navy">Create a locker manually</h2>
+              <p className="mt-2 text-sm text-slate-500">Use manual entry for one-off additions or corrections.</p>
               <form action={createLocker} className="mt-5 space-y-4">
                 <input name="locker_number" placeholder="Locker number" required className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
                 <input name="location" placeholder="Location" required className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
                 <div className="grid grid-cols-2 gap-3">
-                  <input name="combo_1" placeholder="Combo 1" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_2" placeholder="Combo 2" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_3" placeholder="Combo 3" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_4" placeholder="Combo 4" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_5" placeholder="Combo 5" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                  <input name="combo_1" placeholder="Combination 1" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                  <input name="combo_2" placeholder="Combination 2 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                  <input name="combo_3" placeholder="Combination 3 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                  <input name="combo_4" placeholder="Combination 4 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+                  <input name="combo_5" placeholder="Combination 5 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
                   <input name="active_combo_index" type="number" min="1" max="5" defaultValue="1" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
                 </div>
                 <select name="status" defaultValue="AVAILABLE" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">

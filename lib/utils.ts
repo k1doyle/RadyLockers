@@ -20,6 +20,12 @@ export function formatStatus(value: string) {
     .join(' ');
 }
 
+export function formatFeeModel(value: string) {
+  if (value === 'DEPOSIT_50_WITH_25_REFUND') return '$50 total, $25 refundable deposit';
+  if (value === 'FLAT_25_NON_REFUNDABLE') return '$25 flat rental fee';
+  return formatStatus(value);
+}
+
 export function getComboValue(locker: {
   combo_1: string;
   combo_2: string;
