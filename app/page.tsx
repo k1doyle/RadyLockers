@@ -41,6 +41,7 @@ export default function HomePage() {
                   Staff Login
                 </Link>
               </div>
+              <p className="mt-4 text-sm font-medium text-brand-blue">$50 total per locker • $25 refundable deposit</p>
               <ul className="mt-8 space-y-3 text-sm text-slate-600">
                 <li>• Outdoor metal lockers only for version 1.</li>
                 <li>• Daily rentals and wooden keyed lockers are intentionally excluded.</li>
@@ -60,7 +61,43 @@ export default function HomePage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-6 py-16">
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="max-w-3xl">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Student Information</p>
+              <h2 className="mt-3 text-3xl font-semibold text-brand-navy">What to expect before you request</h2>
+              <p className="mt-4 text-sm leading-7 text-slate-600">
+                Locker requests are reviewed by staff and fulfilled based on available supply for the selected quarter.
+              </p>
+            </div>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              <article className="rounded-2xl bg-slate-50 p-6">
+                <h3 className="text-lg font-semibold text-brand-navy">Eligibility</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Current Rady students and approved Rady affiliates may submit a locker request. Assignments are limited and based on availability.
+                </p>
+              </article>
+              <article className="rounded-2xl bg-slate-50 p-6">
+                <h3 className="text-lg font-semibold text-brand-navy">Cost</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Locker rental is $50 total, including a $25 refundable deposit. The remaining $25 is a non-refundable rental fee. Deposits are returned after the locker is emptied and verified at the end of use.
+                </p>
+              </article>
+              <article className="rounded-2xl bg-slate-50 p-6">
+                <h3 className="text-lg font-semibold text-brand-navy">Assignment Period</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Lockers are typically assigned for one academic quarter. Students may request to renew for additional quarters, depending on availability and demand.
+                </p>
+              </article>
+              <article className="rounded-2xl bg-slate-50 p-6">
+                <h3 className="text-lg font-semibold text-brand-navy">Return Expectations</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Lockers must be emptied and returned by the posted end-of-quarter deadline. Late or incomplete returns may affect deposit refunds and future eligibility.
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
             {highlights.map((highlight) => (
               <article key={highlight.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-lg font-semibold text-brand-navy">{highlight.title}</h3>

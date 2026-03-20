@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { submitLockerRequest } from '@/app/actions';
-import { ProgramSelect, QuarterSelect, TextAreaField, TextField } from '@/components/forms';
+import { ProgramSelect, QuarterSelect, RentalPeriodSelect, TextAreaField, TextField } from '@/components/forms';
 import { SiteShell } from '@/components/site-shell';
 
 export default async function RequestPage({
@@ -31,13 +31,14 @@ export default async function RequestPage({
             <TextField name="pid_or_student_id" label="Student PID or ID" required placeholder="A12345678" />
             <ProgramSelect />
             <QuarterSelect />
+            <RentalPeriodSelect />
             <div className="md:col-span-2">
               <TextAreaField name="reason" label="Reason for request (optional)" placeholder="Include schedule, location needs, or context for staff." />
             </div>
             <label className="md:col-span-2 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
               <input type="checkbox" name="acknowledged_terms" required className="mt-1 h-4 w-4 rounded border-slate-300" />
               <span>
-                I understand locker access is quarter-based, lockers remain Rady property, and staff may reassign or revoke lockers if terms are not followed.
+                I understand lockers are assigned per quarter, lockers remain Rady property, the total cost is $50, including a $25 refundable deposit, and staff may revoke access if policies are not followed.
               </span>
             </label>
             <div className="md:col-span-2 flex flex-wrap items-center gap-4">
