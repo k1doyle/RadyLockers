@@ -81,7 +81,11 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                 <input 
                   type="date" 
                   name="assignment_start_date"
-                  defaultValue={new Date().toLocaleDateString('en-CA')}
+                  defaultValue={
+                    new Intl.DateTimeFormat('en-CA', {
+                      timeZone: 'America/Los_Angeles',
+                    }).format(new Date())
+                  }
                   required 
                   className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" 
                   />
