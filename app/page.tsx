@@ -37,6 +37,25 @@ export default function HomePage() {
                 </Link>
               </div>
               <p className="mt-3 text-sm text-slate-500">Limited availability. Requests are reviewed in the order received.</p>
+              <div className="mt-6 max-w-2xl rounded-2xl border border-slate-200 bg-slate-50/70 p-5 text-left shadow-sm">
+                <div className="space-y-4 text-sm leading-6 text-slate-600">
+                  <div>
+                    <p className="font-semibold text-brand-navy">Eligibility</p>
+                    <p className="mt-1">
+                      Open to current Rady students and approved Rady affiliates. Assignments are limited and based on availability.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-brand-navy">Return expectations</p>
+                    <p className="mt-1">
+                      Lockers must be emptied and returned by the posted end-of-quarter deadline so deposits can be refunded appropriately.
+                    </p>
+                  </div>
+                  <div className="border-t border-slate-200 pt-3 text-sm text-slate-500">
+                    Questions? Contact Rady Student Affairs.
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-5">
@@ -74,38 +93,6 @@ export default function HomePage() {
                     <span className="block text-slate-600">All follow-up is sent through your UCSD email.</span>
                   </li>
                 </ol>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto max-w-6xl px-6 py-10">
-          <div className="grid gap-8">
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">What to know before you apply</p>
-              <div className="mt-6 space-y-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">Eligibility</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Open to current Rady students and approved Rady affiliates. Assignments are limited and based on availability.
-                  </p>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">Pricing and renewal</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    The total cost is $50 per quarter, including a $25 refundable deposit and a $25 rental fee. Students may request to renew for additional quarters.
-                  </p>
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-brand-navy">Return expectations</h2>
-                  <p className="mt-2 text-sm leading-7 text-slate-600">
-                    Lockers must be emptied and returned by the posted end-of-quarter deadline so deposits can be refunded appropriately.
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-8 border-t border-slate-200 pt-6 text-sm text-slate-500">
-                Questions? Contact Rady Student Affairs.
               </div>
             </div>
           </div>
