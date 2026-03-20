@@ -181,12 +181,14 @@ export default async function LockerDetailPage({
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
                     <input type="hidden" name="locker_id" value={locker.locker_id} />
                     <p className="font-semibold text-slate-900">Return initiated</p>
+                    <p className="text-sm text-slate-600">Next step: inspect the locker and confirm it is empty.</p>
                     <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Plan locker inspection</button>
                   </form>
                   <form action={closeAssignment} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
                     <input type="hidden" name="locker_id" value={locker.locker_id} />
                     <p className="font-semibold text-slate-900">Complete return</p>
+                    <p className="text-sm text-slate-600">Resets locker for next student and advances combination.</p>
                     <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Reset locker</button>
                   </form>
                 </div>
