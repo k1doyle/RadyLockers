@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, resendAssignmentEmail, updateLocker } from '@/app/actions';
+import { ActionSubmitButton } from '@/components/action-submit-button';
 import { AdminShell } from '@/components/admin-shell';
 import { TextAreaField, TextField } from '@/components/forms';
 import { StatusBadge } from '@/components/status-badge';
@@ -61,6 +62,7 @@ export default async function LockerDetailPage({
   const activeAssignmentDaysLeft = activeAssignment?.assignment_end_date ? getDaysUntil(activeAssignment.assignment_end_date) : null;
   const isActiveAssignmentEndingSoon = activeAssignmentDaysLeft !== null && activeAssignmentDaysLeft >= 0 && activeAssignmentDaysLeft <= 14;
   const isPendingReturn = locker.status === 'PENDING_RETURN';
+  const isReturnCompleted = locker.status === 'RETURNED' || latestAssignment?.request_status === 'CLOSED';
   const locationOptions = Array.from(new Set([STANDARD_LOCKER_LOCATION, locker.location].filter(Boolean)));
 
   return (
@@ -245,25 +247,36 @@ export default async function LockerDetailPage({
                   </form>
                 </div>
               ) : latestAssignment ? (
-                <form action={completeReturn} className="mt-5 space-y-4 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
-                  <input type="hidden" name="request_id" value={latestAssignment.request_id} />
-                  <input type="hidden" name="locker_id" value={locker.locker_id} />
-                  <p className="font-semibold text-slate-900">Complete return workflow</p>
-                  <TextField name="return_verified_by" label="Verified by" required />
-                  <label className="block text-sm font-medium text-slate-700">
-                    Refund status
-                    <select name="refund_status" defaultValue={latestAssignment.refund_status} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
-                      {['NOT_APPLICABLE', 'PENDING', 'COMPLETED', 'FORFEITED'].map((status) => (
-                        <option key={status} value={status}>{formatStatus(status)}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-3 text-sm text-slate-700">
-                    <input type="checkbox" name="advance_combo" defaultChecked className="h-4 w-4 rounded border-slate-300" />
-                    Advance locker to the next preset combination
-                  </label>
-                  <button className="rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white">Verify return and close</button>
-                </form>
+                isReturnCompleted ? (
+                  <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    <p className="font-semibold text-slate-900">Return completed</p>
+                    <p>This locker has already been verified and closed.</p>
+                  </div>
+                ) : (
+                  <form action={completeReturn} className="mt-5 space-y-4 rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
+                    <input type="hidden" name="request_id" value={latestAssignment.request_id} />
+                    <input type="hidden" name="locker_id" value={locker.locker_id} />
+                    <p className="font-semibold text-slate-900">Complete return workflow</p>
+                    <TextField name="return_verified_by" label="Verified by" required />
+                    <label className="block text-sm font-medium text-slate-700">
+                      Refund status
+                      <select name="refund_status" defaultValue={latestAssignment.refund_status} className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                        {['NOT_APPLICABLE', 'PENDING', 'COMPLETED', 'FORFEITED'].map((status) => (
+                          <option key={status} value={status}>{formatStatus(status)}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-3 text-sm text-slate-700">
+                      <input type="checkbox" name="advance_combo" defaultChecked className="h-4 w-4 rounded border-slate-300" />
+                      Advance locker to the next preset combination
+                    </label>
+                    <ActionSubmitButton
+                      idleLabel="Verify return and close"
+                      pendingLabel="Verifying return..."
+                      className="rounded-xl bg-brand-navy px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+                    />
+                  </form>
+                )
               ) : (
                 <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No assignment is connected to this locker yet.</p>
               )}
