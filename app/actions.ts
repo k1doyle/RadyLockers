@@ -116,12 +116,12 @@ function logActionError(message: string, error: unknown) {
   console.error(message, error);
 }
 
-function redirectToAdminError(message: string): never {
-  redirect('/admin?settingsError=' + encodeURIComponent(message));
+function redirectToLockerManagementError(message: string): never {
+  redirect('/admin/lockers?importError=' + encodeURIComponent(message));
 }
 
 function redirectToImportError(message: string): never {
-  redirect('/admin?importError=' + encodeURIComponent(message) + '#locker-import');
+  redirect('/admin/lockers?importError=' + encodeURIComponent(message) + '#locker-import');
 }
 
 function redirectToLockerWarning(lockerId: number, message: string): never {
@@ -266,7 +266,7 @@ export async function createLocker(formData: FormData) {
 
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
-  if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin');
+  if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin/lockers');
 
   try {
     await createLockerRecord({
@@ -286,10 +286,10 @@ export async function createLocker(formData: FormData) {
     });
   } catch (error) {
     logActionError('Failed to create locker.', error);
-    redirectToAdminError('Unable to create the locker right now.');
+    redirectToLockerManagementError('Unable to create the locker right now.');
   }
 
-  redirect('/admin');
+  redirect('/admin/lockers');
 }
 
 const lockerImportHeaderMap: Record<string, string> = {
@@ -327,7 +327,7 @@ export async function importLockers(formData: FormData) {
     redirectToImportError('Upload a CSV file or paste CSV rows to import lockers.');
   }
 
-  let destination = '/admin?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
+  let destination = '/admin/lockers?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
 
   try {
     const rows = parseCsv(csvText);
@@ -394,10 +394,10 @@ export async function importLockers(formData: FormData) {
     }
 
     const createdCount = await createLockerRecordsBulk(importedLockers);
-    destination = '/admin?imported=' + encodeURIComponent(String(createdCount)) + '#locker-import';
+    destination = '/admin/lockers?imported=' + encodeURIComponent(String(createdCount)) + '#locker-import';
   } catch (error) {
     logActionError('Failed to import lockers.', error);
-    destination = '/admin?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
+    destination = '/admin/lockers?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
   }
 
   redirect(destination);
@@ -511,7 +511,7 @@ export async function updateNotificationSettings(formData: FormData) {
   const assignmentParsed = rawAssignmentEmail ? z.string().email().safeParse(rawAssignmentEmail) : { success: true as const };
 
   if ((rawRequestEmail && !requestParsed.success) || (rawAssignmentEmail && !assignmentParsed.success)) {
-    redirect('/admin?settingsError=' + encodeURIComponent('Enter valid notification email addresses.'));
+    redirect('/admin/notifications?settingsError=' + encodeURIComponent('Enter valid notification email addresses.'));
   }
 
   const now = new Date().toISOString();
@@ -526,11 +526,11 @@ export async function updateNotificationSettings(formData: FormData) {
     );
   } catch (error) {
     logActionError('Failed to update notification settings.', error);
-    redirect('/admin?settingsError=' + encodeURIComponent('Notification email settings could not be updated right now.'));
+    redirect('/admin/notifications?settingsError=' + encodeURIComponent('Notification email settings could not be updated right now.'));
   }
 
   redirect(
-    '/admin?settingsSaved=' +
+    '/admin/notifications?settingsSaved=' +
       encodeURIComponent(
         'Notification email settings updated.',
       ),
