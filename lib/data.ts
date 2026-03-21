@@ -53,6 +53,7 @@ export type AssignmentRow = {
   payment_notes: string | null;
   assignment_email_status: AssignmentEmailStatus | null;
   assignment_email_sent_at: string | null;
+  return_reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };

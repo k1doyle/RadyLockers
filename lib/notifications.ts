@@ -39,6 +39,14 @@ type LockerAssignmentEmailInput = {
   assignment_end_date: string;
 };
 
+type LockerReturnReminderEmailInput = {
+  student_name: string;
+  ucsd_email: string;
+  locker_number: string;
+  location: string;
+  assignment_end_date: string;
+};
+
 function getEnvValue(name: string) {
   return process.env[name]?.trim() || null;
 }
@@ -215,6 +223,44 @@ export async function sendLockerAssignmentEmail(input: LockerAssignmentEmailInpu
     bcc: assignmentConfig.effectiveRecipient || undefined,
     replyTo: assignmentConfig.effectiveRecipient || fromAddress,
     subject: `Your Rady locker assignment: Locker ${input.locker_number}`,
+    text,
+  });
+
+  return {
+    sent: true,
+    internalCopyRecipient: assignmentConfig.effectiveRecipient,
+  };
+}
+
+export async function sendLockerReturnReminderEmail(input: LockerReturnReminderEmailInput) {
+  const assignmentConfig = await getLockerAssignmentNotificationConfig();
+  const { fromAddress, deliveryConfigured } = assignmentConfig;
+
+  if (!deliveryConfigured || !fromAddress) {
+    return { sent: false, reason: 'SMTP delivery is not configured.' };
+  }
+
+  const formattedEndDate = formatDate(input.assignment_end_date);
+  const text = [
+    `Hello ${input.student_name},`,
+    '',
+    `This is a reminder that your Rady locker assignment is scheduled to end on ${formattedEndDate}, which is 14 days from today.`,
+    '',
+    `Locker number: ${input.locker_number}`,
+    `Location: ${input.location}`,
+    `Return due date: ${formattedEndDate}`,
+    '',
+    `Please empty and return the locker by ${formattedEndDate} so staff can complete your check-out and process your $${STANDARD_REFUNDABLE_DEPOSIT} refundable deposit.`,
+    '',
+    'If you need to discuss continued locker use, please contact Rady Student Affairs.',
+  ].join('\n');
+
+  await createTransport().sendMail({
+    from: fromAddress,
+    to: input.ucsd_email,
+    bcc: assignmentConfig.effectiveRecipient || undefined,
+    replyTo: assignmentConfig.effectiveRecipient || fromAddress,
+    subject: `Reminder: return Locker ${input.locker_number} by ${formattedEndDate}`,
     text,
   });
 
