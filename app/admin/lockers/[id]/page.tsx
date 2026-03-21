@@ -57,6 +57,7 @@ export default async function LockerDetailPage({
   const latestAssignment = assignments[0];
   const activeAssignmentDaysLeft = activeAssignment?.assignment_end_date ? getDaysUntil(activeAssignment.assignment_end_date) : null;
   const isActiveAssignmentEndingSoon = activeAssignmentDaysLeft !== null && activeAssignmentDaysLeft >= 0 && activeAssignmentDaysLeft <= 14;
+  const isPendingReturn = locker.status === 'PENDING_RETURN';
   const locationOptions = Array.from(new Set([STANDARD_LOCKER_LOCATION, locker.location].filter(Boolean)));
 
   return (
@@ -218,13 +219,20 @@ export default async function LockerDetailPage({
                       <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Resend locker details</button>
                     </form>
                   </div>
-                  <form action={markPendingReturn} className="space-y-3 rounded-2xl border border-slate-200 p-4">
-                    <input type="hidden" name="request_id" value={activeAssignment.request_id} />
-                    <input type="hidden" name="locker_id" value={locker.locker_id} />
-                    <p className="font-semibold text-slate-900">Return initiated</p>
-                    <p className="text-sm text-slate-600">Next step: inspect the locker and confirm it is empty.</p>
-                    <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Plan locker inspection</button>
-                  </form>
+                  {isPendingReturn ? (
+                    <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="font-semibold text-slate-900">Return initiated</p>
+                      <p className="text-sm text-slate-600">Inspection already planned. Next step: inspect the locker and confirm it is empty.</p>
+                    </div>
+                  ) : (
+                    <form action={markPendingReturn} className="space-y-3 rounded-2xl border border-slate-200 p-4">
+                      <input type="hidden" name="request_id" value={activeAssignment.request_id} />
+                      <input type="hidden" name="locker_id" value={locker.locker_id} />
+                      <p className="font-semibold text-slate-900">Return initiated</p>
+                      <p className="text-sm text-slate-600">Next step: inspect the locker and confirm it is empty.</p>
+                      <button className="rounded-xl border border-slate-300 px-4 py-3 font-semibold text-slate-700">Plan locker inspection</button>
+                    </form>
+                  )}
                   <form action={closeAssignment} className="space-y-3 rounded-2xl border border-slate-200 p-4">
                     <input type="hidden" name="request_id" value={activeAssignment.request_id} />
                     <input type="hidden" name="locker_id" value={locker.locker_id} />
