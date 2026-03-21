@@ -45,7 +45,7 @@ function getDaysLeft(value: string | Date) {
     return Date.UTC(year, month - 1, day);
   };
 
-  return Math.max(0, Math.ceil((getPacificMidnight(new Date(value)) - getPacificMidnight(new Date())) / (1000 * 60 * 60 * 24)));
+  return Math.ceil((getPacificMidnight(new Date(value)) - getPacificMidnight(new Date())) / (1000 * 60 * 60 * 24));
 }
 
 export default async function AdminDashboard({
@@ -63,6 +63,7 @@ export default async function AdminDashboard({
   const filterSearch = typeof params.search === 'string' ? params.search : '';
   const filterStatus = typeof params.status === 'string' ? params.status : '';
   const filterQuarter = typeof params.quarter === 'string' ? params.quarter : '';
+  const filterTiming = typeof params.timing === 'string' ? params.timing : '';
   const requestedPage = Number.parseInt(typeof params.page === 'string' ? params.page : '1', 10);
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
@@ -105,14 +106,28 @@ export default async function AdminDashboard({
     const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
     return daysLeft >= 0 && daysLeft <= 14;
   }).length;
+  const filteredLockers = lockers.filter((locker) => {
+    if (!filterTiming) return true;
+    if (!locker.latest_assignment_end_date) return false;
+
+    const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
+
+    if (filterTiming === 'ending-soon') return daysLeft >= 1 && daysLeft <= 14;
+    if (filterTiming === 'due-today') return daysLeft === 0;
+    if (filterTiming === 'overdue') return daysLeft < 0;
+
+    return true;
+  });
+  const filteredLockerCount = filteredLockers.length;
   const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
-  const showingStart = totalLockers ? (currentPage - 1) * pageSize + 1 : 0;
-  const showingEnd = totalLockers ? Math.min(currentPage * pageSize, totalLockers) : 0;
+  const showingStart = filteredLockerCount ? 1 : 0;
+  const showingEnd = filteredLockerCount;
   const buildPageHref = (nextPage: number) => {
     const search = new URLSearchParams();
     if (filterSearch) search.set('search', filterSearch);
     if (filterStatus) search.set('status', filterStatus);
     if (filterQuarter) search.set('quarter', filterQuarter);
+    if (filterTiming) search.set('timing', filterTiming);
     if (nextPage > 1) search.set('page', String(nextPage));
     const query = search.toString();
     return query ? `/admin?${query}` : '/admin';
@@ -160,8 +175,8 @@ export default async function AdminDashboard({
                 <p className="mt-2 text-sm text-slate-500">Search by locker number, student, email, or program.</p>
               </div>
             </div>
-            <form className="mt-6 grid gap-4 md:grid-cols-3">
-<input name="search" defaultValue={filterSearch} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
+            <form className="mt-6 grid gap-4 md:grid-cols-4">
+              <input name="search" defaultValue={filterSearch} placeholder="Search lockers or students" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
               <select name="status" defaultValue={filterStatus} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
                 <option value="">All statuses</option>
                 {lockerStatuses.map((status) => (
@@ -174,7 +189,13 @@ export default async function AdminDashboard({
                   <option key={quarter} value={quarter}>{quarter}</option>
                 ))}
               </select>
-              <div className="md:col-span-3 flex gap-3">
+              <select name="timing" defaultValue={filterTiming} className="rounded-xl border border-slate-300 px-4 py-3 text-sm">
+                <option value="">All return timing</option>
+                <option value="ending-soon">Ending soon</option>
+                <option value="due-today">Due today</option>
+                <option value="overdue">Overdue</option>
+              </select>
+              <div className="md:col-span-4 flex gap-3">
                 <button className="rounded-xl bg-brand-navy px-5 py-3 text-sm font-semibold text-white">Apply filters</button>
                 <Link href="/admin" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700">Clear</Link>
               </div>
@@ -192,10 +213,12 @@ export default async function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {lockers.length ? (
-                    lockers.map((locker) => {
+                  {filteredLockers.length ? (
+                    filteredLockers.map((locker) => {
                       const daysLeft = locker.latest_assignment_end_date ? getDaysLeft(locker.latest_assignment_end_date) : null;
-                      const isEndingSoon = daysLeft !== null && daysLeft <= 14;
+                      const isOverdue = daysLeft !== null && daysLeft < 0;
+                      const isEndingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+                      const returnDueText = daysLeft === null ? null : daysLeft === 0 ? 'Due today' : daysLeft > 0 ? `${daysLeft} ${daysLeft === 1 ? 'day left' : 'days left'}` : `Past due by ${Math.abs(daysLeft)} ${Math.abs(daysLeft) === 1 ? 'day' : 'days'}`;
 
                       return (
                         <tr key={locker.locker_id}>
@@ -205,7 +228,11 @@ export default async function AdminDashboard({
                           <td className="py-4 pr-4 text-slate-600">
                             <div className="space-y-1">
                               <p>{locker.latest_requested_quarter ?? '—'}</p>
-                              {isEndingSoon ? (
+                              {isOverdue ? (
+                                <span className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800">
+                                  Overdue
+                                </span>
+                              ) : isEndingSoon ? (
                                 <span className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
                                   Ending Soon
                                 </span>
@@ -213,7 +240,7 @@ export default async function AdminDashboard({
                               {locker.latest_assignment_end_date ? (
                                 <>
                                   <p className="text-xs text-slate-500">Ends {formatPacificDate(locker.latest_assignment_end_date)}</p>
-                                  <p className="text-xs text-slate-500">{daysLeft} {daysLeft === 1 ? 'day left' : 'days left'}</p>
+                                  {returnDueText ? <p className="text-xs text-slate-500">{returnDueText}</p> : null}
                                 </>
                               ) : null}
                             </div>
@@ -237,7 +264,7 @@ export default async function AdminDashboard({
               </table>
             </div>
             <div className="mt-5 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <p>Showing {showingStart}-{showingEnd} of {totalLockers} lockers</p>
+              <p>Showing {showingStart}-{showingEnd} of {filteredLockerCount} lockers</p>
               <div className="flex items-center gap-3">
                 {currentPage > 1 ? (
                   <Link href={buildPageHref(currentPage - 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700">
