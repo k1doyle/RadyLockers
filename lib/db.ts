@@ -130,6 +130,16 @@ type AssignmentEmailPayload = {
   assignment_end_date: string | null;
 };
 
+type ReturnReminderPayload = {
+  request_id: number;
+  locker_id: number;
+  student_name: string;
+  ucsd_email: string;
+  locker_number: string;
+  location: string;
+  assignment_end_date: string;
+};
+
 const rootDir = process.cwd();
 const sqliteSchemaPath = path.join(rootDir, 'db', 'schema.sql');
 const configuredDatabaseUrl = getConfiguredDatabaseUrl();
@@ -139,6 +149,12 @@ let sqliteDb: Database.Database | null = null;
 const lockerNumberCollator = new Intl.Collator('en-US', {
   numeric: true,
   sensitivity: 'base',
+});
+const pacificDateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  timeZone: 'America/Los_Angeles',
 });
 
 function unsupportedDatabaseError() {
@@ -171,6 +187,30 @@ function normalizeInteger(value: unknown, fallback = 0) {
   if (typeof value === 'number') return value;
   if (typeof value === 'string' && value !== '') return Number(value);
   return fallback;
+}
+
+function getPacificDateKey(value: Date) {
+  const parts = pacificDateFormatter.formatToParts(value);
+  const year = Number(parts.find((part) => part.type === 'year')?.value ?? 0);
+  const month = Number(parts.find((part) => part.type === 'month')?.value ?? 1);
+  const day = Number(parts.find((part) => part.type === 'day')?.value ?? 1);
+
+  return `${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+}
+
+function getDateKey(value: string | Date) {
+  if (typeof value === 'string') {
+    const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+    if (match) return match[0];
+  }
+
+  return getPacificDateKey(new Date(value));
+}
+
+function getPacificDateKeyDaysFromNow(days: number, referenceDate = new Date()) {
+  const referenceDateKey = getPacificDateKey(referenceDate);
+  const [year, month, day] = referenceDateKey.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
 }
 
 function getActiveComboValue(locker: LockerComboRow) {
@@ -229,6 +269,7 @@ function mapAssignmentRow(row: Record<string, unknown>): AssignmentRow {
     payment_notes: row.payment_notes == null ? null : String(row.payment_notes),
     assignment_email_status: row.assignment_email_status == null ? null : String(row.assignment_email_status) as AssignmentEmailStatus,
     assignment_email_sent_at: normalizeTimestamp(row.assignment_email_sent_at),
+    return_reminder_sent_at: normalizeTimestamp(row.return_reminder_sent_at),
     created_at: normalizeTimestamp(row.created_at) ?? new Date(0).toISOString(),
     updated_at: normalizeTimestamp(row.updated_at) ?? new Date(0).toISOString(),
   };
@@ -293,6 +334,10 @@ function ensureSqliteSchema(db: Database.Database) {
 
   if (!assignmentColumns.some((column) => column.name === 'assignment_email_sent_at')) {
     db.prepare(`ALTER TABLE assignments ADD COLUMN assignment_email_sent_at TEXT`).run();
+  }
+
+  if (!assignmentColumns.some((column) => column.name === 'return_reminder_sent_at')) {
+    db.prepare(`ALTER TABLE assignments ADD COLUMN return_reminder_sent_at TEXT`).run();
   }
 }
 
@@ -645,7 +690,7 @@ export async function assignLockerRecord(input: AssignLockerInput) {
       db.prepare(`
         UPDATE assignments
         SET request_status = 'ASSIGNED', assigned_locker_id = ?, assignment_start_date = ?, assignment_end_date = ?,
-            fee_model = ?, amount_charged = ?, refundable_amount = ?, refund_status = ?, payment_notes = ?, updated_at = ?
+            fee_model = ?, amount_charged = ?, refundable_amount = ?, refund_status = ?, payment_notes = ?, return_reminder_sent_at = NULL, updated_at = ?
         WHERE request_id = ?
       `).run(
         input.locker_id,
@@ -698,7 +743,7 @@ export async function assignLockerRecord(input: AssignLockerInput) {
       await client.query(
         `UPDATE assignments
          SET request_status = 'ASSIGNED', assigned_locker_id = $1, assignment_start_date = $2, assignment_end_date = $3,
-             fee_model = $4, amount_charged = $5, refundable_amount = $6, refund_status = $7, payment_notes = $8, updated_at = $9
+             fee_model = $4, amount_charged = $5, refundable_amount = $6, refund_status = $7, payment_notes = $8, return_reminder_sent_at = NULL, updated_at = $9
          WHERE request_id = $10`,
         [
           input.locker_id,
@@ -771,6 +816,34 @@ export async function updateAssignmentEmailDelivery(
        SET assignment_email_status = $1, assignment_email_sent_at = $2, updated_at = $3
        WHERE request_id = $4`,
       [status, sentAt, updatedAt, requestId],
+    );
+    return;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function updateReturnReminderDelivery(
+  requestId: number,
+  sentAt: string,
+  updatedAt: string,
+) {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    db.prepare(`
+      UPDATE assignments
+      SET return_reminder_sent_at = ?, updated_at = ?
+      WHERE request_id = ?
+    `).run(sentAt, updatedAt, requestId);
+    return;
+  }
+
+  if (databaseMode === 'postgres') {
+    await postgresQuery(
+      `UPDATE assignments
+       SET return_reminder_sent_at = $1, updated_at = $2
+       WHERE request_id = $3`,
+      [sentAt, updatedAt, requestId],
     );
     return;
   }
@@ -864,6 +937,75 @@ export async function getAssignmentEmailPayload(requestId: number): Promise<Assi
       assignment_start_date: normalizeTimestamp(row.assignment_start_date),
       assignment_end_date: normalizeTimestamp(row.assignment_end_date),
     };
+  }
+
+  throw unsupportedDatabaseError();
+}
+
+export async function getAssignmentsDueForReturnReminder(referenceDate = new Date()): Promise<ReturnReminderPayload[]> {
+  const targetDateKey = getPacificDateKeyDaysFromNow(14, referenceDate);
+
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    const rows = db.prepare(`
+      SELECT
+        a.request_id,
+        a.student_name,
+        a.ucsd_email,
+        a.assignment_end_date,
+        l.locker_id,
+        l.locker_number,
+        l.location
+      FROM assignments a
+      INNER JOIN lockers l ON l.locker_id = a.assigned_locker_id
+      WHERE a.request_status = 'ASSIGNED'
+        AND a.assignment_end_date IS NOT NULL
+        AND a.return_reminder_sent_at IS NULL
+      ORDER BY a.assignment_end_date ASC, a.student_name ASC
+    `).all() as Record<string, unknown>[];
+
+    return rows
+      .map((row) => ({
+        request_id: normalizeInteger(row.request_id),
+        locker_id: normalizeInteger(row.locker_id),
+        student_name: String(row.student_name ?? ''),
+        ucsd_email: String(row.ucsd_email ?? ''),
+        locker_number: String(row.locker_number ?? ''),
+        location: String(row.location ?? ''),
+        assignment_end_date: normalizeTimestamp(row.assignment_end_date) ?? '',
+      }))
+      .filter((row) => row.assignment_end_date && getDateKey(row.assignment_end_date) === targetDateKey);
+  }
+
+  if (databaseMode === 'postgres') {
+    const result = await postgresQuery<QueryResultRow>(
+      `SELECT
+        a.request_id,
+        a.student_name,
+        a.ucsd_email,
+        a.assignment_end_date,
+        l.locker_id,
+        l.locker_number,
+        l.location
+      FROM assignments a
+      INNER JOIN lockers l ON l.locker_id = a.assigned_locker_id
+      WHERE a.request_status = 'ASSIGNED'
+        AND a.assignment_end_date IS NOT NULL
+        AND a.return_reminder_sent_at IS NULL
+      ORDER BY a.assignment_end_date ASC, a.student_name ASC`,
+    );
+
+    return result.rows
+      .map((row) => ({
+        request_id: normalizeInteger(row.request_id),
+        locker_id: normalizeInteger(row.locker_id),
+        student_name: String(row.student_name ?? ''),
+        ucsd_email: String(row.ucsd_email ?? ''),
+        locker_number: String(row.locker_number ?? ''),
+        location: String(row.location ?? ''),
+        assignment_end_date: normalizeTimestamp(row.assignment_end_date) ?? '',
+      }))
+      .filter((row) => row.assignment_end_date && getDateKey(row.assignment_end_date) === targetDateKey);
   }
 
   throw unsupportedDatabaseError();

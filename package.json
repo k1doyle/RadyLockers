@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:generate": "echo \"No Prisma generate step required for SQLite schema\"",
     "db:push": "tsx scripts/init-db.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "reminders:return": "tsx scripts/send-return-reminders.ts"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.5.0",

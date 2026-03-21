@@ -91,6 +91,7 @@ model Assignment {
   payment_notes          String?
   assignment_email_status AssignmentEmailStatus?
   assignment_email_sent_at DateTime?
+  return_reminder_sent_at DateTime?
   created_at             DateTime      @default(now())
   updated_at             DateTime      @updatedAt
   locker                 Locker?       @relation(fields: [assigned_locker_id], references: [locker_id])
