@@ -1014,13 +1014,22 @@ export async function getAssignmentsDueForReturnReminder(referenceDate = new Dat
 export async function markPendingReturnRecord(requestId: number, lockerId: number, now: string) {
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
+    const locker = db.prepare(`SELECT status FROM lockers WHERE locker_id = ?`).get(lockerId) as { status: string } | undefined;
+    if (!locker || locker.status === 'PENDING_RETURN') return false;
+
     db.prepare(`UPDATE lockers SET status = 'PENDING_RETURN', updated_at = ? WHERE locker_id = ?`).run(now, lockerId);
-    return;
+    return true;
   }
 
   if (databaseMode === 'postgres') {
-    await postgresQuery(`UPDATE lockers SET status = 'PENDING_RETURN', updated_at = $1 WHERE locker_id = $2`, [now, lockerId]);
-    return;
+    const result = await postgresQuery<{ locker_id: number }>(
+      `UPDATE lockers
+       SET status = 'PENDING_RETURN', updated_at = $1
+       WHERE locker_id = $2 AND status <> 'PENDING_RETURN'
+       RETURNING locker_id`,
+      [now, lockerId],
+    );
+    return result.rows.length > 0;
   }
 
   throw unsupportedDatabaseError();

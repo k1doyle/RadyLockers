@@ -544,8 +544,10 @@ export async function markPendingReturn(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
   try {
-    await markPendingReturnRecord(requestId, lockerId, now);
-    await createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
+    const changed = await markPendingReturnRecord(requestId, lockerId, now);
+    if (changed) {
+      await createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
+    }
   } catch (error) {
     logActionError(`Failed to mark locker ${lockerId} pending return.`, error);
     redirectToLockerWarning(lockerId, 'Locker return status could not be updated right now.');
