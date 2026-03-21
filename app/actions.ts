@@ -576,12 +576,14 @@ export async function completeReturn(formData: FormData) {
       now,
     });
 
-    await createAuditLog(
-      'COMPLETE_RETURN',
-      `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${result.locker_number}.`,
-      lockerId,
-      requestId,
-    );
+    if (result.changed) {
+      await createAuditLog(
+        'COMPLETE_RETURN',
+        `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${result.locker_number}.`,
+        lockerId,
+        requestId,
+      );
+    }
   } catch (error) {
     logActionError(`Failed to complete return for locker ${lockerId}.`, error);
     redirectToLockerWarning(lockerId, 'Locker return could not be completed right now.');

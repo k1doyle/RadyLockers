@@ -1,5 +1,5 @@
-import { getCurrentAssignmentsExport } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
+import { getCurrentAssignmentsExport } from '@/lib/db';
 
 export async function GET() {
   await requireAdmin();

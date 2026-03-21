@@ -1039,10 +1039,29 @@ export async function completeReturnRecord(input: CompleteReturnInput) {
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
     const transaction = db.transaction(() => {
-      const locker = db.prepare(`SELECT locker_number, active_combo_index FROM lockers WHERE locker_id = ?`).get(input.locker_id) as {
+      const locker = db.prepare(`SELECT locker_number, active_combo_index, status FROM lockers WHERE locker_id = ?`).get(input.locker_id) as {
         locker_number: string;
         active_combo_index: number;
-      };
+        status: string;
+      } | undefined;
+      const assignment = db.prepare(`SELECT request_status FROM assignments WHERE request_id = ?`).get(input.request_id) as {
+        request_status: string;
+      } | undefined;
+      if (!locker || !assignment) {
+        throw new Error('Locker or assignment could not be found for return completion.');
+      }
+
+      const previousIndex = locker.active_combo_index;
+      const alreadyCompleted = locker.status === 'RETURNED' || assignment.request_status === 'CLOSED';
+      if (alreadyCompleted) {
+        return {
+          changed: false,
+          locker_number: locker.locker_number,
+          previous_index: previousIndex,
+          next_index: previousIndex,
+        };
+      }
+
       const nextIndex = input.should_advance ? Math.min(locker.active_combo_index + 1, 5) : locker.active_combo_index;
 
       db.prepare(`
@@ -1065,8 +1084,9 @@ export async function completeReturnRecord(input: CompleteReturnInput) {
       );
 
       return {
+        changed: true,
         locker_number: locker.locker_number,
-        previous_index: locker.active_combo_index,
+        previous_index: previousIndex,
         next_index: nextIndex,
       };
     });
@@ -1076,12 +1096,32 @@ export async function completeReturnRecord(input: CompleteReturnInput) {
 
   if (databaseMode === 'postgres') {
     return postgresTransaction(async (client) => {
-      const lockerResult = await client.query<{ locker_number: string; active_combo_index: number }>(
-        `SELECT locker_number, active_combo_index FROM lockers WHERE locker_id = $1`,
+      const lockerResult = await client.query<{ locker_number: string; active_combo_index: number; status: string }>(
+        `SELECT locker_number, active_combo_index, status FROM lockers WHERE locker_id = $1 FOR UPDATE`,
         [input.locker_id],
       );
+      const assignmentResult = await client.query<{ request_status: string }>(
+        `SELECT request_status FROM assignments WHERE request_id = $1 FOR UPDATE`,
+        [input.request_id],
+      );
       const locker = lockerResult.rows[0];
-      const nextIndex = input.should_advance ? Math.min(normalizeInteger(locker?.active_combo_index, 1) + 1, 5) : normalizeInteger(locker?.active_combo_index, 1);
+      const assignment = assignmentResult.rows[0];
+      if (!locker || !assignment) {
+        throw new Error('Locker or assignment could not be found for return completion.');
+      }
+
+      const previousIndex = normalizeInteger(locker.active_combo_index, 1);
+      const alreadyCompleted = locker.status === 'RETURNED' || assignment.request_status === 'CLOSED';
+      if (alreadyCompleted) {
+        return {
+          changed: false,
+          locker_number: locker.locker_number,
+          previous_index: previousIndex,
+          next_index: previousIndex,
+        };
+      }
+
+      const nextIndex = input.should_advance ? Math.min(previousIndex + 1, 5) : previousIndex;
 
       await client.query(
         `UPDATE assignments
@@ -1103,8 +1143,9 @@ export async function completeReturnRecord(input: CompleteReturnInput) {
       );
 
       return {
-        locker_number: locker?.locker_number ?? '',
-        previous_index: normalizeInteger(locker?.active_combo_index, 1),
+        changed: true,
+        locker_number: locker.locker_number,
+        previous_index: previousIndex,
         next_index: nextIndex,
       };
     });
