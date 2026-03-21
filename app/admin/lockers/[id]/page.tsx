@@ -60,7 +60,7 @@ export default async function LockerDetailPage({
   const locationOptions = Array.from(new Set([STANDARD_LOCKER_LOCATION, locker.location].filter(Boolean)));
 
   return (
-    <AdminShell>
+    <AdminShell currentSection="lockers">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

@@ -28,7 +28,7 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
   const availableLockers = await getAvailableLockers();
 
   return (
-    <AdminShell>
+    <AdminShell currentSection="dashboard">
       <div className="mx-auto max-w-5xl px-6 py-8">
         <Link href="/admin" className="text-sm font-medium text-brand-blue">← Back to dashboard</Link>
         <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">

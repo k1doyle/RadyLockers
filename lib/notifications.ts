@@ -9,7 +9,7 @@ import {
 export const LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY = 'locker_request_notification_email';
 export const LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY = 'locker_assignment_notification_email';
 
-type NotificationConfig = {
+export type NotificationConfig = {
   savedRecipient: string | null;
   envRecipient: string | null;
   effectiveRecipient: string | null;
