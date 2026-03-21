@@ -1,6 +1,9 @@
 import { getHistoryExport } from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
 
 export async function GET() {
+  await requireAdmin();
+
   const rows = await getHistoryExport();
   const header = [
     'request_id',
