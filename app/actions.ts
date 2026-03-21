@@ -47,6 +47,22 @@ const requestSchema = z.object({
   acknowledged_terms: z.literal('on'),
 });
 
+function logActionError(message: string, error: unknown) {
+  console.error(message, error);
+}
+
+function redirectToAdminError(message: string): never {
+  redirect('/admin?settingsError=' + encodeURIComponent(message));
+}
+
+function redirectToImportError(message: string): never {
+  redirect('/admin?importError=' + encodeURIComponent(message) + '#locker-import');
+}
+
+function redirectToLockerWarning(lockerId: number, message: string): never {
+  redirect(`/admin/lockers/${lockerId}?emailWarning=${encodeURIComponent(message)}`);
+}
+
 async function sendAssignmentEmailAndTrack(
   requestId: number,
   lockerId: number,
@@ -173,21 +189,26 @@ export async function createLocker(formData: FormData) {
   const now = new Date().toISOString();
   if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin');
 
-  await createLockerRecord({
-    locker_number: String(formData.get('locker_number') || '').trim(),
-    location: normalizeLockerLocation(String(formData.get('location') || '')),
-    status,
-    combo_1: String(formData.get('combo_1') || '').trim(),
-    combo_2: String(formData.get('combo_2') || '').trim(),
-    combo_3: String(formData.get('combo_3') || '').trim(),
-    combo_4: String(formData.get('combo_4') || '').trim(),
-    combo_5: String(formData.get('combo_5') || '').trim(),
-    active_combo_index: Number(formData.get('active_combo_index') || 1),
-    notes: String(formData.get('notes') || '').trim() || null,
-    disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
-    created_at: now,
-    updated_at: now,
-  });
+  try {
+    await createLockerRecord({
+      locker_number: String(formData.get('locker_number') || '').trim(),
+      location: normalizeLockerLocation(String(formData.get('location') || '')),
+      status,
+      combo_1: String(formData.get('combo_1') || '').trim(),
+      combo_2: String(formData.get('combo_2') || '').trim(),
+      combo_3: String(formData.get('combo_3') || '').trim(),
+      combo_4: String(formData.get('combo_4') || '').trim(),
+      combo_5: String(formData.get('combo_5') || '').trim(),
+      active_combo_index: Number(formData.get('active_combo_index') || 1),
+      notes: String(formData.get('notes') || '').trim() || null,
+      disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
+      created_at: now,
+      updated_at: now,
+    });
+  } catch (error) {
+    logActionError('Failed to create locker.', error);
+    redirectToAdminError('Unable to create the locker right now.');
+  }
 
   redirect('/admin');
 }
@@ -224,10 +245,10 @@ export async function importLockers(formData: FormData) {
       : pastedCsv;
 
   if (!csvText) {
-    redirect('/admin?importError=' + encodeURIComponent('Upload a CSV file or paste CSV rows to import lockers.') + '#locker-import');
+    redirectToImportError('Upload a CSV file or paste CSV rows to import lockers.');
   }
 
-  let destination = '/admin?importError=' + encodeURIComponent('Locker import failed.') + '#locker-import';
+  let destination = '/admin?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
 
   try {
     const rows = parseCsv(csvText);
@@ -296,8 +317,8 @@ export async function importLockers(formData: FormData) {
     const createdCount = await createLockerRecordsBulk(importedLockers);
     destination = '/admin?imported=' + encodeURIComponent(String(createdCount)) + '#locker-import';
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Locker import failed.';
-    destination = '/admin?importError=' + encodeURIComponent(message) + '#locker-import';
+    logActionError('Failed to import lockers.', error);
+    destination = '/admin?importError=' + encodeURIComponent('Locker import failed. Please try again.') + '#locker-import';
   }
 
   redirect(destination);
@@ -309,22 +330,27 @@ export async function updateLocker(formData: FormData) {
   const lockerId = Number(formData.get('locker_id'));
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
-  const lockerNumber = await updateLockerRecord({
-    locker_id: lockerId,
-    locker_number: String(formData.get('locker_number') || '').trim(),
-    location: normalizeLockerLocation(String(formData.get('location') || '')),
-    status,
-    combo_1: String(formData.get('combo_1') || '').trim(),
-    combo_2: String(formData.get('combo_2') || '').trim(),
-    combo_3: String(formData.get('combo_3') || '').trim(),
-    combo_4: String(formData.get('combo_4') || '').trim(),
-    combo_5: String(formData.get('combo_5') || '').trim(),
-    active_combo_index: Number(formData.get('active_combo_index') || 1),
-    notes: String(formData.get('notes') || '').trim() || null,
-    disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
-    updated_at: now,
-  });
-  await createAuditLog('UPDATE_LOCKER', `Updated locker ${lockerNumber}.`, lockerId);
+  try {
+    const lockerNumber = await updateLockerRecord({
+      locker_id: lockerId,
+      locker_number: String(formData.get('locker_number') || '').trim(),
+      location: normalizeLockerLocation(String(formData.get('location') || '')),
+      status,
+      combo_1: String(formData.get('combo_1') || '').trim(),
+      combo_2: String(formData.get('combo_2') || '').trim(),
+      combo_3: String(formData.get('combo_3') || '').trim(),
+      combo_4: String(formData.get('combo_4') || '').trim(),
+      combo_5: String(formData.get('combo_5') || '').trim(),
+      active_combo_index: Number(formData.get('active_combo_index') || 1),
+      notes: String(formData.get('notes') || '').trim() || null,
+      disabled_reason: String(formData.get('disabled_reason') || '').trim() || null,
+      updated_at: now,
+    });
+    await createAuditLog('UPDATE_LOCKER', `Updated locker ${lockerNumber}.`, lockerId);
+  } catch (error) {
+    logActionError(`Failed to update locker ${lockerId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker updates could not be saved right now.');
+  }
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -337,28 +363,32 @@ export async function assignLocker(formData: FormData) {
   const assignmentStartDate = String(formData.get('assignment_start_date') || '') || null;
   const assignmentEndDate = String(formData.get('assignment_end_date') || '') || null;
   const now = new Date().toISOString();
-
-  const assignment = await assignLockerRecord({
-    request_id: requestId,
-    locker_id: lockerId,
-    assignment_start_date: assignmentStartDate,
-    assignment_end_date: assignmentEndDate,
-    fee_model: STANDARD_FEE_MODEL,
-    amount_charged: STANDARD_TOTAL_COST,
-    refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
-    payment_notes: paymentNotes,
-    updated_at: now,
-  });
-
-  await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
-
   let destination = `/admin/lockers/${lockerId}`;
 
-  const emailResult = await sendAssignmentEmailAndTrack(requestId, lockerId);
-  if (!emailResult.sent) {
-    destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${emailResult.reason}`);
-  } else if (!emailResult.internalCopyRecipient) {
-    destination += '?emailWarning=' + encodeURIComponent('Student assignment email sent, but no internal BCC inbox is configured.');
+  try {
+    const assignment = await assignLockerRecord({
+      request_id: requestId,
+      locker_id: lockerId,
+      assignment_start_date: assignmentStartDate,
+      assignment_end_date: assignmentEndDate,
+      fee_model: STANDARD_FEE_MODEL,
+      amount_charged: STANDARD_TOTAL_COST,
+      refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
+      payment_notes: paymentNotes,
+      updated_at: now,
+    });
+
+    await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
+
+    const emailResult = await sendAssignmentEmailAndTrack(requestId, lockerId);
+    if (!emailResult.sent) {
+      destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${emailResult.reason}`);
+    } else if (!emailResult.internalCopyRecipient) {
+      destination += '?emailWarning=' + encodeURIComponent('Student assignment email sent, but no internal BCC inbox is configured.');
+    }
+  } catch (error) {
+    logActionError(`Failed to assign locker ${lockerId} to request ${requestId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker assignment could not be saved right now.');
   }
 
   redirect(destination);
@@ -369,22 +399,28 @@ export async function resendAssignmentEmail(formData: FormData) {
 
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
-  const result = await sendAssignmentEmailAndTrack(requestId, lockerId);
+  let destination = `/admin/lockers/${lockerId}`;
 
-  if (!result.sent) {
-    redirect(
-      `/admin/lockers/${lockerId}?emailWarning=` +
-        encodeURIComponent(`Locker details were not resent. ${result.reason}`),
-    );
+  try {
+    const result = await sendAssignmentEmailAndTrack(requestId, lockerId);
+
+    if (!result.sent) {
+      destination += '?emailWarning=' + encodeURIComponent(`Locker details were not resent. ${result.reason}`);
+    } else {
+      await createAuditLog('RESEND_ASSIGNMENT_EMAIL', 'Resent locker assignment email to the student.', lockerId, requestId);
+
+      const message = result.internalCopyRecipient
+        ? 'Locker details email resent successfully.'
+        : 'Locker details email resent to the student, but no internal BCC inbox is configured.';
+
+      destination += `?emailSuccess=${encodeURIComponent(message)}`;
+    }
+  } catch (error) {
+    logActionError(`Failed to resend locker assignment email for request ${requestId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker details could not be resent right now.');
   }
 
-  await createAuditLog('RESEND_ASSIGNMENT_EMAIL', 'Resent locker assignment email to the student.', lockerId, requestId);
-
-  const message = result.internalCopyRecipient
-    ? 'Locker details email resent successfully.'
-    : 'Locker details email resent to the student, but no internal BCC inbox is configured.';
-
-  redirect(`/admin/lockers/${lockerId}?emailSuccess=${encodeURIComponent(message)}`);
+  redirect(destination);
 }
 
 export async function updateNotificationSettings(formData: FormData) {
@@ -402,13 +438,17 @@ export async function updateNotificationSettings(formData: FormData) {
   const now = new Date().toISOString();
   const requestSettingValue = rawRequestEmail || null;
   const assignmentSettingValue = rawAssignmentEmail || null;
-
-  await upsertAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, requestSettingValue, now);
-  await upsertAppSetting(LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY, assignmentSettingValue, now);
-  await createAuditLog(
-    'UPDATE_SETTING',
-    `Updated notification settings. Request inbox: ${requestSettingValue ?? 'fallback/none'}. Assignment inbox: ${assignmentSettingValue ?? 'fallback/none'}.`,
-  );
+  try {
+    await upsertAppSetting(LOCKER_REQUEST_NOTIFICATION_EMAIL_KEY, requestSettingValue, now);
+    await upsertAppSetting(LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL_KEY, assignmentSettingValue, now);
+    await createAuditLog(
+      'UPDATE_SETTING',
+      `Updated notification settings. Request inbox: ${requestSettingValue ?? 'fallback/none'}. Assignment inbox: ${assignmentSettingValue ?? 'fallback/none'}.`,
+    );
+  } catch (error) {
+    logActionError('Failed to update notification settings.', error);
+    redirect('/admin?settingsError=' + encodeURIComponent('Notification email settings could not be updated right now.'));
+  }
 
   redirect(
     '/admin?settingsSaved=' +
@@ -424,9 +464,13 @@ export async function markPendingReturn(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-
-  await markPendingReturnRecord(requestId, lockerId, now);
-  await createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
+  try {
+    await markPendingReturnRecord(requestId, lockerId, now);
+    await createAuditLog('PENDING_RETURN', 'Marked locker pending return.', lockerId, requestId);
+  } catch (error) {
+    logActionError(`Failed to mark locker ${lockerId} pending return.`, error);
+    redirectToLockerWarning(lockerId, 'Locker return status could not be updated right now.');
+  }
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -441,21 +485,26 @@ export async function completeReturn(formData: FormData) {
 
   if (!REFUND_STATUSES.includes(refundStatus as never)) redirect(`/admin/lockers/${lockerId}`);
 
-  const result = await completeReturnRecord({
-    request_id: requestId,
-    locker_id: lockerId,
-    return_verified_by: String(formData.get('return_verified_by') || '').trim(),
-    refund_status: refundStatus,
-    should_advance: shouldAdvance,
-    now,
-  });
+  try {
+    const result = await completeReturnRecord({
+      request_id: requestId,
+      locker_id: lockerId,
+      return_verified_by: String(formData.get('return_verified_by') || '').trim(),
+      refund_status: refundStatus,
+      should_advance: shouldAdvance,
+      now,
+    });
 
-  await createAuditLog(
-    'COMPLETE_RETURN',
-    `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${result.locker_number}.`,
-    lockerId,
-    requestId,
-  );
+    await createAuditLog(
+      'COMPLETE_RETURN',
+      `Closed assignment and ${shouldAdvance ? 'advanced' : 'retained'} combo index for locker ${result.locker_number}.`,
+      lockerId,
+      requestId,
+    );
+  } catch (error) {
+    logActionError(`Failed to complete return for locker ${lockerId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker return could not be completed right now.');
+  }
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -464,9 +513,13 @@ export async function advanceCombo(formData: FormData) {
 
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-  const result = await advanceComboRecord(lockerId, now);
-
-  await createAuditLog('ADVANCE_COMBO', `Advanced combo position from ${result.previous_index} to ${result.next_index}.`, lockerId);
+  try {
+    const result = await advanceComboRecord(lockerId, now);
+    await createAuditLog('ADVANCE_COMBO', `Advanced combo position from ${result.previous_index} to ${result.next_index}.`, lockerId);
+  } catch (error) {
+    logActionError(`Failed to advance combo for locker ${lockerId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker combination index could not be advanced right now.');
+  }
   redirect(`/admin/lockers/${lockerId}`);
 }
 
@@ -476,8 +529,12 @@ export async function closeAssignment(formData: FormData) {
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
-
-  await closeAssignmentRecord(requestId, lockerId, now);
-  await createAuditLog('CLOSE_ASSIGNMENT', 'Closed assignment and made locker available.', lockerId, requestId);
+  try {
+    await closeAssignmentRecord(requestId, lockerId, now);
+    await createAuditLog('CLOSE_ASSIGNMENT', 'Closed assignment and made locker available.', lockerId, requestId);
+  } catch (error) {
+    logActionError(`Failed to close assignment ${requestId} for locker ${lockerId}.`, error);
+    redirectToLockerWarning(lockerId, 'Locker assignment could not be closed right now.');
+  }
   redirect(`/admin/lockers/${lockerId}`);
 }
