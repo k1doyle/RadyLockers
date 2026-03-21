@@ -37,15 +37,80 @@ import {
 } from '@/lib/db';
 
 const requestSchema = z.object({
-  student_name: z.string().min(2),
-  ucsd_email: z.string().email().refine((value) => value.endsWith('@ucsd.edu'), 'Use your UCSD email'),
-  pid_or_student_id: z.string().min(6),
-  program: z.string().min(2),
-  requested_quarter: z.string().min(2),
-  requested_rental_period: z.enum(rentalPeriods),
+  student_name: z.string().trim().min(2, 'Enter your full name'),
+  ucsd_email: z.string().trim().email('Enter a valid email address').refine((value) => value.endsWith('@ucsd.edu'), 'Use your UCSD email'),
+  pid_or_student_id: z.string().trim().min(6, 'Enter your student PID or ID'),
+  program: z.string().trim().min(2, 'Select your program'),
+  requested_quarter: z.string().trim().min(2, 'Select a quarter'),
+  requested_rental_period: z.string().refine((value): value is (typeof rentalPeriods)[number] => rentalPeriods.includes(value as (typeof rentalPeriods)[number]), 'Select a rental period'),
   reason: z.string().optional(),
-  acknowledged_terms: z.literal('on'),
+  acknowledged_terms: z.string().refine((value) => value === 'on', 'Please confirm the locker terms'),
 });
+
+const REQUEST_FORM_STATE_COOKIE = 'rady-lockers-request-form-state';
+
+type RequestFormFieldName =
+  | 'student_name'
+  | 'ucsd_email'
+  | 'pid_or_student_id'
+  | 'program'
+  | 'requested_quarter'
+  | 'requested_rental_period'
+  | 'reason'
+  | 'acknowledged_terms';
+
+type RequestFormState = {
+  summary: string;
+  values: {
+    student_name: string;
+    ucsd_email: string;
+    pid_or_student_id: string;
+    program: string;
+    requested_quarter: string;
+    requested_rental_period: string;
+    reason: string;
+    acknowledged_terms: boolean;
+  };
+  errors: Partial<Record<RequestFormFieldName, string>>;
+};
+
+function getRequestFormValues(formData: FormData): RequestFormState['values'] {
+  return {
+    student_name: String(formData.get('student_name') || '').trim(),
+    ucsd_email: String(formData.get('ucsd_email') || '').trim(),
+    pid_or_student_id: String(formData.get('pid_or_student_id') || '').trim(),
+    program: String(formData.get('program') || '').trim(),
+    requested_quarter: String(formData.get('requested_quarter') || '').trim(),
+    requested_rental_period: String(formData.get('requested_rental_period') || '').trim(),
+    reason: String(formData.get('reason') || '').trim(),
+    acknowledged_terms: formData.get('acknowledged_terms') === 'on',
+  };
+}
+
+async function setRequestFormState(state: RequestFormState) {
+  const cookieStore = await cookies();
+  cookieStore.set(REQUEST_FORM_STATE_COOKIE, JSON.stringify(state), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 10,
+  });
+}
+
+async function clearRequestFormState() {
+  const cookieStore = await cookies();
+  cookieStore.delete(REQUEST_FORM_STATE_COOKIE);
+}
+
+async function redirectToRequestFormError(summary: string, formData: FormData, errors: RequestFormState['errors'] = {}) {
+  await setRequestFormState({
+    summary,
+    values: getRequestFormValues(formData),
+    errors,
+  });
+  redirect('/request?formError=1');
+}
 
 function logActionError(message: string, error: unknown) {
   console.error(message, error);
@@ -112,29 +177,42 @@ export async function submitLockerRequest(formData: FormData) {
   const parsed = requestSchema.safeParse(Object.fromEntries(formData));
 
   if (!parsed.success) {
-    redirect(`/request?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? 'Unable to submit request')}`);
+    const fieldErrors = parsed.error.issues.reduce<Partial<Record<RequestFormFieldName, string>>>((errors, issue) => {
+      const field = issue.path[0];
+      if (typeof field === 'string' && !(field in errors)) {
+        errors[field as RequestFormFieldName] = issue.message;
+      }
+      return errors;
+    }, {});
+
+    await redirectToRequestFormError('Please review the highlighted fields and try again.', formData, fieldErrors);
+    return;
   }
 
   const data = parsed.data;
   const now = new Date().toISOString();
   const renewalRequested = data.requested_rental_period === 'One Academic Quarter, with possible renewal request' ? 1 : 0;
-
-  await createAssignmentRequest({
-    student_name: data.student_name,
-    ucsd_email: data.ucsd_email,
-    pid_or_student_id: data.pid_or_student_id,
-    program: data.program,
-    requested_quarter: data.requested_quarter,
-    requested_rental_period: data.requested_rental_period,
-    renewal_requested: renewalRequested,
-    notes: data.reason || null,
-    fee_model: STANDARD_FEE_MODEL,
-    amount_charged: STANDARD_TOTAL_COST,
-    refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
-    refund_status: 'PENDING',
-    created_at: now,
-    updated_at: now,
-  });
+  try {
+    await createAssignmentRequest({
+      student_name: data.student_name,
+      ucsd_email: data.ucsd_email,
+      pid_or_student_id: data.pid_or_student_id,
+      program: data.program,
+      requested_quarter: data.requested_quarter,
+      requested_rental_period: data.requested_rental_period,
+      renewal_requested: renewalRequested,
+      notes: data.reason || null,
+      fee_model: STANDARD_FEE_MODEL,
+      amount_charged: STANDARD_TOTAL_COST,
+      refundable_amount: STANDARD_REFUNDABLE_DEPOSIT,
+      refund_status: 'PENDING',
+      created_at: now,
+      updated_at: now,
+    });
+  } catch (error) {
+    console.error('Failed to create locker request.', error);
+    await redirectToRequestFormError('Your request could not be submitted right now. Please try again.', formData);
+  }
 
   try {
     const result = await sendNewLockerRequestNotification({
@@ -155,6 +233,7 @@ export async function submitLockerRequest(formData: FormData) {
     console.error('Failed to send locker request notification.', error);
   }
 
+  await clearRequestFormState();
   redirect('/request/confirmation');
 }
 
