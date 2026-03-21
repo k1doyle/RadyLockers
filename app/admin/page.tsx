@@ -106,6 +106,14 @@ export default async function AdminDashboard({
     const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
     return daysLeft >= 0 && daysLeft <= 14;
   }).length;
+  const dueTodayCount = lockers.filter((locker) => {
+    if (!locker.latest_assignment_end_date) return false;
+    return getDaysLeft(locker.latest_assignment_end_date) === 0;
+  }).length;
+  const overdueCount = lockers.filter((locker) => {
+    if (!locker.latest_assignment_end_date) return false;
+    return getDaysLeft(locker.latest_assignment_end_date) < 0;
+  }).length;
   const filteredLockers = lockers.filter((locker) => {
     if (!filterTiming) return true;
     if (!locker.latest_assignment_end_date) return false;
@@ -159,10 +167,12 @@ export default async function AdminDashboard({
         {settingsSaved ? <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{settingsSaved}</div> : null}
         {settingsError ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{settingsError}</div> : null}
 
-        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment." tone="border-emerald-200" />
           <MetricCard label="Assigned lockers" value={metricMap.get('ASSIGNED') ?? 0} description="Currently checked out." tone="border-blue-200" />
           <MetricCard label="Pending return" value={metricMap.get('PENDING_RETURN') ?? 0} description="Awaiting return verification." tone="border-amber-200" />
+          <MetricCard label="Due today" value={dueTodayCount} description="Return deadline is today." tone="border-amber-300" />
+          <MetricCard label="Overdue" value={overdueCount} description="Past the return deadline." tone="border-rose-200" />
           <MetricCard label="Ending soon" value={endingSoonCount} description="Due within 14 days on this page." tone="border-amber-300" />
           <MetricCard label="Disabled lockers" value={metricMap.get('DISABLED') ?? 0} description="Unavailable for use." tone="border-slate-300" />
         </section>
