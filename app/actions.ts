@@ -167,6 +167,8 @@ export async function logoutAdmin() {
 }
 
 export async function createLocker(formData: FormData) {
+  await requireAdmin();
+
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
   if (!LOCKER_STATUSES.includes(status as never)) redirect('/admin');
@@ -212,6 +214,8 @@ const lockerImportHeaderMap: Record<string, string> = {
 };
 
 export async function importLockers(formData: FormData) {
+  await requireAdmin();
+
   const uploadedFile = formData.get('csv_file');
   const pastedCsv = String(formData.get('csv_text') || '').trim();
   const csvText =
@@ -300,6 +304,8 @@ export async function importLockers(formData: FormData) {
 }
 
 export async function updateLocker(formData: FormData) {
+  await requireAdmin();
+
   const lockerId = Number(formData.get('locker_id'));
   const status = String(formData.get('status') || 'AVAILABLE');
   const now = new Date().toISOString();
@@ -323,6 +329,8 @@ export async function updateLocker(formData: FormData) {
 }
 
 export async function assignLocker(formData: FormData) {
+  await requireAdmin();
+
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const paymentNotes = String(formData.get('payment_notes') || '').trim() || null;
@@ -411,6 +419,8 @@ export async function updateNotificationSettings(formData: FormData) {
 }
 
 export async function markPendingReturn(formData: FormData) {
+  await requireAdmin();
+
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
@@ -421,6 +431,8 @@ export async function markPendingReturn(formData: FormData) {
 }
 
 export async function completeReturn(formData: FormData) {
+  await requireAdmin();
+
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const refundStatus = String(formData.get('refund_status') || 'NOT_APPLICABLE');
@@ -448,6 +460,8 @@ export async function completeReturn(formData: FormData) {
 }
 
 export async function advanceCombo(formData: FormData) {
+  await requireAdmin();
+
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
   const result = await advanceComboRecord(lockerId, now);
@@ -457,6 +471,8 @@ export async function advanceCombo(formData: FormData) {
 }
 
 export async function closeAssignment(formData: FormData) {
+  await requireAdmin();
+
   const requestId = Number(formData.get('request_id'));
   const lockerId = Number(formData.get('locker_id'));
   const now = new Date().toISOString();
