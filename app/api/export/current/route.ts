@@ -1,6 +1,9 @@
 import { getCurrentAssignmentsExport } from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
 
 export async function GET() {
+  await requireAdmin();
+
   const rows = await getCurrentAssignmentsExport();
   const header = [
     'request_id',
