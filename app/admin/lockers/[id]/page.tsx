@@ -9,6 +9,21 @@ import { requireAdmin } from '@/lib/auth';
 import { getLockerDetail } from '@/lib/db';
 import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
 import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
+
+const AUDIT_EVENT_LABELS: Record<string, string> = {
+  ADVANCE_COMBO: 'Combination advanced',
+  ASSIGN_LOCKER: 'Locker assigned',
+  CLOSE_ASSIGNMENT: 'Assignment closed',
+  COMPLETE_RETURN: 'Return completed',
+  PENDING_RETURN: 'Return initiated',
+  RESEND_ASSIGNMENT_EMAIL: 'Assignment email resent',
+  SEED_ASSIGNMENT: 'Assignment seeded',
+  SEED_NOTE: 'Seed note added',
+  SEED_RETURN: 'Return seeded',
+  UPDATE_LOCKER: 'Locker updated',
+  UPDATE_SETTING: 'Settings updated',
+};
+
 function formatPacificDateTime(value: string | Date) {
   const date = new Date(value);
 
@@ -37,6 +52,11 @@ function getDaysUntil(dateValue: string | Date) {
 
   return Math.ceil((targetMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+function formatAuditEventLabel(action: string) {
+  return AUDIT_EVENT_LABELS[action] ?? formatStatus(action);
+}
+
 export default async function LockerDetailPage({
   params,
   searchParams,
@@ -283,7 +303,7 @@ export default async function LockerDetailPage({
                 {auditLogs.length ? (
                   auditLogs.map((log) => (
                     <div key={log.id} className="rounded-2xl bg-slate-50 p-4">
-                      <p className="font-semibold text-slate-900">{log.action}</p>
+                      <p className="font-semibold text-slate-900">{formatAuditEventLabel(log.action)}</p>
                       <p className="mt-1">{log.details}</p>
                       <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">{formatPacificDateTime(log.created_at)}</p>
                     </div>
