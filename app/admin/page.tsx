@@ -1,22 +1,10 @@
 import Link from 'next/link';
 import { AdminShell } from '@/components/admin-shell';
-import { ActionSubmitButton } from '@/components/action-submit-button';
 import { MetricCard } from '@/components/metric-card';
 import { StatusBadge } from '@/components/status-badge';
-import { createLocker, importLockers, updateNotificationSettings } from '@/app/actions';
 import { lockerStatuses, quarters } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
 import { canUseDatabaseRuntime, describeConfiguredDatabase, getConfiguredDatabaseUrl } from '@/lib/database-config';
-import {
-  getLockerAssignmentNotificationConfig,
-  getLockerRequestNotificationConfig,
-} from '@/lib/notifications';
-import {
-  STANDARD_LOCKER_LOCATION,
-  STANDARD_REFUNDABLE_DEPOSIT,
-  STANDARD_RENTAL_FEE,
-  STANDARD_TOTAL_COST,
-} from '@/lib/policy';
 import { getDashboardData } from '@/lib/queries';
 import { formatStatus } from '@/lib/utils';
 
@@ -56,10 +44,6 @@ export default async function AdminDashboard({
   await requireAdmin();
   const params = await searchParams;
   const adminDataAvailable = canUseDatabaseRuntime();
-  const imported = typeof params.imported === 'string' ? params.imported : '';
-  const importError = typeof params.importError === 'string' ? params.importError : '';
-  const settingsSaved = typeof params.settingsSaved === 'string' ? params.settingsSaved : '';
-  const settingsError = typeof params.settingsError === 'string' ? params.settingsError : '';
   const filterSearch = typeof params.search === 'string' ? params.search : '';
   const filterStatus = typeof params.status === 'string' ? params.status : '';
   const filterQuarter = typeof params.quarter === 'string' ? params.quarter : '';
@@ -69,7 +53,7 @@ export default async function AdminDashboard({
 
   if (!adminDataAvailable) {
     return (
-      <AdminShell>
+      <AdminShell currentSection="dashboard">
         <div className="mx-auto max-w-4xl px-6 py-8">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue">Rady Locker Dashboard</p>
@@ -88,7 +72,7 @@ export default async function AdminDashboard({
     );
   }
 
-  const [{ lockers, requests, metrics, totalLockers, currentPage, pageSize }, requestNotificationConfig, assignmentNotificationConfig] = await Promise.all([
+  const [{ lockers, requests, metrics, totalLockers, currentPage, pageSize }] = await Promise.all([
     getDashboardData({
       search: filterSearch,
       status: filterStatus,
@@ -97,8 +81,6 @@ export default async function AdminDashboard({
       page,
       pageSize: 25,
     }),
-    getLockerRequestNotificationConfig(),
-    getLockerAssignmentNotificationConfig(),
   ]);
   const metricMap = new Map(metrics.map((entry) => [entry.status, entry.count]));
   const endingSoonCount = lockers.filter((locker) => {
@@ -142,7 +124,7 @@ export default async function AdminDashboard({
   };
 
   return (
-    <AdminShell>
+    <AdminShell currentSection="dashboard">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -161,11 +143,6 @@ export default async function AdminDashboard({
             </Link>
           </div>
         </div>
-
-        {imported ? <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">Imported {imported} lockers successfully.</div> : null}
-        {importError ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{importError}</div> : null}
-        {settingsSaved ? <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{settingsSaved}</div> : null}
-        {settingsError ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{settingsError}</div> : null}
 
         <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
           <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment." tone="border-emerald-200" />
@@ -322,158 +299,6 @@ export default async function AdminDashboard({
                   <p className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">No open requests at the moment.</p>
                 )}
               </div>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-brand-navy">Email notifications</h2>
-              <p className="mt-2 text-sm text-slate-500">Manage the internal inboxes used for request alerts and assignment email copies.</p>
-              <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-                <p>
-                  Request inbox:{' '}
-                  <span className="font-medium text-slate-900">{requestNotificationConfig.effectiveRecipient ?? 'Not configured'}</span>
-                </p>
-                <p className="mt-2">
-                  Request source:{' '}
-                  <span className="font-medium text-slate-900">
-                    {requestNotificationConfig.source === 'admin'
-                      ? 'Admin setting'
-                      : requestNotificationConfig.source === 'environment'
-                        ? 'Environment fallback'
-                        : 'None'}
-                  </span>
-                </p>
-                <p className="mt-2">
-                  Assignment copy inbox:{' '}
-                  <span className="font-medium text-slate-900">{assignmentNotificationConfig.effectiveRecipient ?? 'Not configured'}</span>
-                </p>
-                <p className="mt-2">
-                  Assignment source:{' '}
-                  <span className="font-medium text-slate-900">
-                    {assignmentNotificationConfig.source === 'admin'
-                      ? 'Admin setting'
-                      : assignmentNotificationConfig.source === 'environment'
-                        ? 'Environment fallback'
-                        : assignmentNotificationConfig.source === 'request-setting'
-                          ? 'Request inbox setting'
-                          : assignmentNotificationConfig.source === 'request-environment'
-                            ? 'Request inbox environment fallback'
-                            : 'None'}
-                  </span>
-                </p>
-                <p className="mt-2">
-                  Delivery status:{' '}
-                  <span className="font-medium text-slate-900">
-                    {requestNotificationConfig.deliveryConfigured
-                      ? `SMTP configured${requestNotificationConfig.fromAddress ? ` (${requestNotificationConfig.fromAddress})` : ''}`
-                      : 'SMTP not configured'}
-                  </span>
-                </p>
-              </div>
-              <form action={updateNotificationSettings} className="mt-5 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Request notification inbox
-                    <input
-                      type="email"
-                      name="notification_email"
-                      defaultValue={requestNotificationConfig.savedRecipient ?? ''}
-                      placeholder={requestNotificationConfig.envRecipient ?? 'studentaffairs@ucsd.edu'}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                    />
-                  </label>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Leave blank to use <span className="font-medium text-slate-700">LOCKER_REQUEST_NOTIFICATION_EMAIL</span>.
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Assignment copy inbox
-                    <input
-                      type="email"
-                      name="assignment_notification_email"
-                      defaultValue={assignmentNotificationConfig.savedRecipient ?? ''}
-                      placeholder={assignmentNotificationConfig.envRecipient ?? requestNotificationConfig.effectiveRecipient ?? 'gsa@ucsd.edu'}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                    />
-                  </label>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Leave blank to use <span className="font-medium text-slate-700">LOCKER_ASSIGNMENT_NOTIFICATION_EMAIL</span>, then fall back to the request inbox if needed.
-                  </p>
-                </div>
-                <button className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white">Save email settings</button>
-              </form>
-            </section>
-
-            <section id="locker-import" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm scroll-mt-8">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-brand-navy">Import lockers from CSV</h2>
-                  <p className="mt-2 text-sm text-slate-500">Use this to load initial locker inventory from a spreadsheet export or cleaned CSV.</p>
-                </div>
-                <Link href="/api/import/lockers-template" className="text-sm font-semibold text-brand-blue">
-                  Download template
-                </Link>
-              </div>
-              {(imported || importError) ? (
-                <div
-                  aria-live="polite"
-                  className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
-                    imported
-                      ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
-                      : 'border border-rose-200 bg-rose-50 text-rose-700'
-                  }`}
-                >
-                  {imported ? `Imported ${imported} lockers successfully.` : importError}
-                </div>
-              ) : null}
-              <form action={importLockers} className="mt-5 space-y-4">
-                <input type="file" name="csv_file" accept=".csv,text/csv" className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-mist file:px-4 file:py-2 file:font-medium file:text-brand-navy" />
-                <textarea
-                  name="csv_text"
-                  placeholder={`locker_number,location,combo1,notes,status\nOM-101,${STANDARD_LOCKER_LOCATION},12-24-08,Near faculty entrance,AVAILABLE`}
-                  className="min-h-28 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                />
-                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-                  Expected columns: <span className="font-medium text-slate-900">locker_number</span>, optional <span className="font-medium text-slate-900">location</span>, <span className="font-medium text-slate-900">combo1</span>, optional <span className="font-medium text-slate-900">combo2</span>-<span className="font-medium text-slate-900">combo5</span>, <span className="font-medium text-slate-900">notes</span>, and <span className="font-medium text-slate-900">status</span>.
-                  If <span className="font-medium text-slate-900">location</span> is blank, the locker imports as <span className="font-medium text-slate-900">{STANDARD_LOCKER_LOCATION}</span>. If <span className="font-medium text-slate-900">status</span> is blank, the locker imports as <span className="font-medium text-slate-900">Available</span>.
-                </div>
-                <ActionSubmitButton
-                  idleLabel="Import lockers"
-                  pendingLabel="Importing lockers..."
-                  className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-                />
-              </form>
-            </section>
-
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-brand-navy">Create a locker manually</h2>
-              <p className="mt-2 text-sm text-slate-500">Use manual entry for one-off additions or corrections.</p>
-              <form action={createLocker} className="mt-5 space-y-4">
-                <input name="locker_number" placeholder="Locker number" required className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                <input type="hidden" name="location" value={STANDARD_LOCKER_LOCATION} />
-                <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                  Location: <span className="font-medium text-slate-900">{STANDARD_LOCKER_LOCATION}</span>
-                </div>
-                <div className="rounded-2xl border border-brand-mist bg-brand-mist/40 p-4 text-sm text-slate-700">
-                  Standard pricing for new assignments: <span className="font-medium text-slate-900">${STANDARD_TOTAL_COST} total</span>, including a <span className="font-medium text-slate-900">${STANDARD_REFUNDABLE_DEPOSIT} refundable deposit</span> and a <span className="font-medium text-slate-900">${STANDARD_RENTAL_FEE} rental fee</span>.
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input name="combo_1" placeholder="Combination 1" required className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_2" placeholder="Combination 2 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_3" placeholder="Combination 3 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_4" placeholder="Combination 4 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="combo_5" placeholder="Combination 5 (optional)" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                  <input name="active_combo_index" type="number" min="1" max="5" defaultValue="1" className="rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                </div>
-                <select name="status" defaultValue="AVAILABLE" className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm">
-                  {lockerStatuses.map((status) => (
-                    <option key={status} value={status}>{formatStatus(status)}</option>
-                  ))}
-                </select>
-                <textarea name="notes" placeholder="Notes" className="min-h-24 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                <textarea name="disabled_reason" placeholder="Disabled reason if applicable" className="min-h-20 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" />
-                <button className="w-full rounded-xl bg-brand-navy px-4 py-3 text-sm font-semibold text-white">Create locker</button>
-              </form>
             </section>
           </div>
         </section>
