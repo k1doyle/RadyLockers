@@ -4,25 +4,12 @@ import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, resen
 import { AdminShell } from '@/components/admin-shell';
 import { TextAreaField, TextField } from '@/components/forms';
 import { StatusBadge } from '@/components/status-badge';
+import { getAuditDescription, getAuditEventLabel } from '@/lib/audit';
 import { lockerStatuses } from '@/lib/constants';
 import { requireAdmin } from '@/lib/auth';
 import { getLockerDetail } from '@/lib/db';
 import { STANDARD_LOCKER_LOCATION } from '@/lib/policy';
 import { formatCurrency, formatFeeModel, formatStatus, getComboValue } from '@/lib/utils';
-
-const AUDIT_EVENT_LABELS: Record<string, string> = {
-  ADVANCE_COMBO: 'Combination advanced',
-  ASSIGN_LOCKER: 'Locker assigned',
-  CLOSE_ASSIGNMENT: 'Assignment closed',
-  COMPLETE_RETURN: 'Return completed',
-  PENDING_RETURN: 'Return initiated',
-  RESEND_ASSIGNMENT_EMAIL: 'Assignment email resent',
-  SEED_ASSIGNMENT: 'Assignment seeded',
-  SEED_NOTE: 'Seed note added',
-  SEED_RETURN: 'Return seeded',
-  UPDATE_LOCKER: 'Locker updated',
-  UPDATE_SETTING: 'Settings updated',
-};
 
 function formatPacificDateTime(value: string | Date) {
   const date = new Date(value);
@@ -51,10 +38,6 @@ function getDaysUntil(dateValue: string | Date) {
   const targetMidnight = new Date(target.getFullYear(), target.getMonth(), target.getDate());
 
   return Math.ceil((targetMidnight.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function formatAuditEventLabel(action: string) {
-  return AUDIT_EVENT_LABELS[action] ?? formatStatus(action);
 }
 
 export default async function LockerDetailPage({
@@ -302,10 +285,12 @@ export default async function LockerDetailPage({
               <div className="mt-5 space-y-3 text-sm text-slate-600">
                 {auditLogs.length ? (
                   auditLogs.map((log) => (
-                    <div key={log.id} className="rounded-2xl bg-slate-50 p-4">
-                      <p className="font-semibold text-slate-900">{formatAuditEventLabel(log.action)}</p>
-                      <p className="mt-1">{log.details}</p>
-                      <p className="mt-2 text-xs uppercase tracking-wide text-slate-400">{formatPacificDateTime(log.created_at)}</p>
+                    <div key={log.id} className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="font-semibold text-slate-900">{getAuditEventLabel(log.action)}</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-400">{formatPacificDateTime(log.created_at)}</p>
+                      </div>
+                      <p className="mt-1.5 leading-6 text-slate-600">{getAuditDescription(log.action, log.details)}</p>
                     </div>
                   ))
                 ) : (
