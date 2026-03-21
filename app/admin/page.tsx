@@ -218,6 +218,7 @@ export default async function AdminDashboard({
                       const daysLeft = locker.latest_assignment_end_date ? getDaysLeft(locker.latest_assignment_end_date) : null;
                       const isOverdue = daysLeft !== null && daysLeft < 0;
                       const isEndingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
+                      const returnDueText = daysLeft === null ? null : daysLeft === 0 ? 'Due today' : daysLeft > 0 ? `${daysLeft} ${daysLeft === 1 ? 'day left' : 'days left'}` : `Past due by ${Math.abs(daysLeft)} ${Math.abs(daysLeft) === 1 ? 'day' : 'days'}`;
 
                       return (
                         <tr key={locker.locker_id}>
@@ -239,13 +240,7 @@ export default async function AdminDashboard({
                               {locker.latest_assignment_end_date ? (
                                 <>
                                   <p className="text-xs text-slate-500">Ends {formatPacificDate(locker.latest_assignment_end_date)}</p>
-                                  <p className="text-xs text-slate-500">
-                                    {daysLeft === 0
-                                      ? 'Due today'
-                                      : daysLeft > 0
-                                        ? `${daysLeft} ${daysLeft === 1 ? 'day left' : 'days left'}`
-                                        : `Past due by ${Math.abs(daysLeft)} ${Math.abs(daysLeft) === 1 ? 'day' : 'days'}`}
-                                  </p>
+                                  {returnDueText ? <p className="text-xs text-slate-500">{returnDueText}</p> : null}
                                 </>
                               ) : null}
                             </div>
