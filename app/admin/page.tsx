@@ -72,46 +72,21 @@ export default async function AdminDashboard({
     );
   }
 
-  const [{ lockers, requests, metrics, totalLockers, currentPage, pageSize }] = await Promise.all([
+  const [{ lockers, requests, metrics, timingCounts, totalLockers, currentPage, pageSize }] = await Promise.all([
     getDashboardData({
       search: filterSearch,
       status: filterStatus,
       quarter: filterQuarter,
+      timing: filterTiming,
       location: '',
       page,
       pageSize: 25,
     }),
   ]);
   const metricMap = new Map(metrics.map((entry) => [entry.status, entry.count]));
-  const endingSoonCount = lockers.filter((locker) => {
-    if (!locker.latest_assignment_end_date) return false;
-    const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
-    return daysLeft >= 0 && daysLeft <= 14;
-  }).length;
-  const dueTodayCount = lockers.filter((locker) => {
-    if (!locker.latest_assignment_end_date) return false;
-    return getDaysLeft(locker.latest_assignment_end_date) === 0;
-  }).length;
-  const overdueCount = lockers.filter((locker) => {
-    if (!locker.latest_assignment_end_date) return false;
-    return getDaysLeft(locker.latest_assignment_end_date) < 0;
-  }).length;
-  const filteredLockers = lockers.filter((locker) => {
-    if (!filterTiming) return true;
-    if (!locker.latest_assignment_end_date) return false;
-
-    const daysLeft = getDaysLeft(locker.latest_assignment_end_date);
-
-    if (filterTiming === 'ending-soon') return daysLeft >= 1 && daysLeft <= 14;
-    if (filterTiming === 'due-today') return daysLeft === 0;
-    if (filterTiming === 'overdue') return daysLeft < 0;
-
-    return true;
-  });
-  const filteredLockerCount = filteredLockers.length;
   const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
-  const showingStart = filteredLockerCount ? 1 : 0;
-  const showingEnd = filteredLockerCount;
+  const showingStart = totalLockers > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const showingEnd = Math.min(currentPage * pageSize, totalLockers);
   const buildPageHref = (nextPage: number) => {
     const search = new URLSearchParams();
     if (filterSearch) search.set('search', filterSearch);
@@ -148,9 +123,9 @@ export default async function AdminDashboard({
           <MetricCard label="Available lockers" value={metricMap.get('AVAILABLE') ?? 0} description="Ready for assignment." tone="border-emerald-200" />
           <MetricCard label="Assigned lockers" value={metricMap.get('ASSIGNED') ?? 0} description="Currently checked out." tone="border-blue-200" />
           <MetricCard label="Pending return" value={metricMap.get('PENDING_RETURN') ?? 0} description="Awaiting return verification." tone="border-amber-200" />
-          <MetricCard label="Due today" value={dueTodayCount} description="Return deadline is today." tone="border-amber-300" />
-          <MetricCard label="Overdue" value={overdueCount} description="Past the return deadline." tone="border-rose-200" />
-          <MetricCard label="Ending soon" value={endingSoonCount} description="Due within 14 days on this page." tone="border-amber-300" />
+          <MetricCard label="Due today" value={timingCounts.dueToday} description="Return deadline is today." tone="border-amber-300" />
+          <MetricCard label="Overdue" value={timingCounts.overdue} description="Past the return deadline." tone="border-rose-200" />
+          <MetricCard label="Ending soon" value={timingCounts.endingSoon} description="Due within 14 days." tone="border-amber-300" />
           <MetricCard label="Disabled lockers" value={metricMap.get('DISABLED') ?? 0} description="Unavailable for use." tone="border-slate-300" />
         </section>
 
@@ -200,8 +175,8 @@ export default async function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredLockers.length ? (
-                    filteredLockers.map((locker) => {
+                  {lockers.length ? (
+                    lockers.map((locker) => {
                       const daysLeft = locker.latest_assignment_end_date ? getDaysLeft(locker.latest_assignment_end_date) : null;
                       const isOverdue = daysLeft !== null && daysLeft < 0;
                       const isEndingSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 14;
@@ -251,7 +226,7 @@ export default async function AdminDashboard({
               </table>
             </div>
             <div className="mt-5 flex flex-col gap-3 border-t border-slate-200 pt-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <p>Showing {showingStart}-{showingEnd} of {filteredLockerCount} lockers</p>
+              <p>Showing {showingStart}–{showingEnd} of {totalLockers} lockers</p>
               <div className="flex items-center gap-3">
                 {currentPage > 1 ? (
                   <Link href={buildPageHref(currentPage - 1)} className="rounded-xl border border-slate-300 px-4 py-2 font-medium text-slate-700">
