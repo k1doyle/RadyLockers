@@ -30,6 +30,9 @@ export default async function AdminLoginPage({
           </label>
           <button className="w-full rounded-xl bg-brand-navy px-6 py-3 text-sm font-semibold text-white">Sign in</button>
         </form>
+        <p className="mt-6 text-xs leading-6 text-slate-400">
+          Currently uses a shared admin password. Designed to integrate with UCSD SSO (Shibboleth) — contact Rady IT to configure.
+        </p>
       </div>
     </main>
   );
