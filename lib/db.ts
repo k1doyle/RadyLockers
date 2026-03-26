@@ -24,9 +24,60 @@ type DashboardFilters = {
   status?: string;
   quarter?: string;
   location?: string;
+  timing?: string;
   page?: number;
   pageSize?: number;
 };
+
+function getDaysLeftFromDate(value: string | Date): number {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  });
+  const getPacificMidnight = (date: Date) => {
+    const parts = formatter.formatToParts(date);
+    const year = Number(parts.find((p) => p.type === 'year')?.value ?? 0);
+    const month = Number(parts.find((p) => p.type === 'month')?.value ?? 1);
+    const day = Number(parts.find((p) => p.type === 'day')?.value ?? 1);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.ceil((getPacificMidnight(new Date(value)) - getPacificMidnight(new Date())) / (1000 * 60 * 60 * 24));
+}
+
+function applyTimingFilter(
+  lockers: DashboardLockerRow[],
+  timing: string | undefined,
+): {
+  lockers: DashboardLockerRow[];
+  counts: { endingSoon: number; dueToday: number; overdue: number };
+} {
+  let endingSoon = 0;
+  let dueToday = 0;
+  let overdue = 0;
+
+  for (const locker of lockers) {
+    if (!locker.latest_assignment_end_date) continue;
+    const daysLeft = getDaysLeftFromDate(locker.latest_assignment_end_date);
+    if (daysLeft >= 0 && daysLeft <= 14) endingSoon++;
+    if (daysLeft === 0) dueToday++;
+    if (daysLeft < 0) overdue++;
+  }
+
+  const filtered = timing
+    ? lockers.filter((locker) => {
+        if (!locker.latest_assignment_end_date) return false;
+        const daysLeft = getDaysLeftFromDate(locker.latest_assignment_end_date);
+        if (timing === 'ending-soon') return daysLeft >= 1 && daysLeft <= 14;
+        if (timing === 'due-today') return daysLeft === 0;
+        if (timing === 'overdue') return daysLeft < 0;
+        return true;
+      })
+    : lockers;
+
+  return { lockers: filtered, counts: { endingSoon, dueToday, overdue } };
+}
 
 type DashboardLockerRow = LockerRow & {
   latest_request_id: number | null;
@@ -1231,6 +1282,7 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
   requests: AssignmentRow[];
   metrics: DashboardMetricRow[];
   locations: DashboardLocationRow[];
+  timingCounts: { endingSoon: number; dueToday: number; overdue: number };
   totalLockers: number;
   currentPage: number;
   pageSize: number;
@@ -1303,16 +1355,18 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
     const locations = db.prepare(`SELECT DISTINCT location FROM lockers ORDER BY location ASC`).all() as Record<string, unknown>[];
 
     const sortedLockers = sortLockersNaturally(lockers.map(mapDashboardLockerRow));
-    const totalLockers = sortedLockers.length;
+    const { lockers: timingLockers, counts: timingCounts } = applyTimingFilter(sortedLockers, filters.timing);
+    const totalLockers = timingLockers.length;
     const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
     const currentPage = Math.min(requestedPage, totalPages);
     const startIndex = (currentPage - 1) * pageSize;
 
     return {
-      lockers: sortedLockers.slice(startIndex, startIndex + pageSize),
+      lockers: timingLockers.slice(startIndex, startIndex + pageSize),
       requests: requests.map(mapAssignmentRow),
       metrics: metrics.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locations.map((entry) => ({ location: String(entry.location) })),
+      timingCounts,
       totalLockers,
       currentPage,
       pageSize,
@@ -1393,16 +1447,18 @@ export async function getDashboardData(filters: DashboardFilters): Promise<{
     ]);
 
     const sortedLockers = sortLockersNaturally(lockersResult.rows.map((row) => mapDashboardLockerRow(row as Record<string, unknown>)));
-    const totalLockers = sortedLockers.length;
+    const { lockers: timingLockers, counts: timingCounts } = applyTimingFilter(sortedLockers, filters.timing);
+    const totalLockers = timingLockers.length;
     const totalPages = Math.max(1, Math.ceil(totalLockers / pageSize));
     const currentPage = Math.min(requestedPage, totalPages);
     const startIndex = (currentPage - 1) * pageSize;
 
     return {
-      lockers: sortedLockers.slice(startIndex, startIndex + pageSize),
+      lockers: timingLockers.slice(startIndex, startIndex + pageSize),
       requests: requestsResult.rows.map((row) => mapAssignmentRow(row as Record<string, unknown>)),
       metrics: metricsResult.rows.map((entry) => ({ status: String(entry.status), count: normalizeInteger(entry.count) })),
       locations: locationsResult.rows.map((entry) => ({ location: String(entry.location) })),
+      timingCounts,
       totalLockers,
       currentPage,
       pageSize,
