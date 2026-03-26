@@ -7,6 +7,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', section: 'dashboard' },
   { href: '/admin/lockers', label: 'Lockers', section: 'lockers' },
   { href: '/admin/notifications', label: 'Notifications', section: 'notifications' },
+  { href: '/admin/about', label: 'System Info', section: 'about' },
 ] as const;
 
 export function AdminShell({
