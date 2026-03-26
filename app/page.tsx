@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { SiteShell } from '@/components/site-shell';
+import { getUpcomingQuarters } from '@/lib/constants';
 
 export default function HomePage() {
   return (
@@ -20,7 +21,7 @@ export default function HomePage() {
                 />
               </div>
               <p className="mt-5 inline-flex rounded-full border border-brand-gold/40 bg-brand-gold/10 px-3 py-1 text-sm font-medium text-brand-navy">
-                Now accepting requests for Spring 2026
+                Now accepting requests for {getUpcomingQuarters()[0]}
               </p>
               <h1 className="mt-4 text-4xl font-semibold tracking-tight text-brand-navy sm:text-5xl">
                 Request a Rady Locker

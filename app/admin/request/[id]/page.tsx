@@ -11,14 +11,7 @@ import {
   STANDARD_TOTAL_COST,
 } from '@/lib/policy';
 import { formatCurrency } from '@/lib/utils';
-const quarterEndDates: Record<string, string> = {
-  'Fall 2025': '2025-12-13',
-  'Winter 2026': '2026-03-21',
-  'Spring 2026': '2026-06-12',
-  'Fall 2026': '2026-12-12',
-  'Winter 2027': '2027-03-20',
-  'Spring 2027': '2027-06-11',
-};
+import { QUARTER_CALENDAR } from '@/lib/constants';
 export default async function RequestReviewPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
@@ -102,7 +95,7 @@ export default async function RequestReviewPage({ params }: { params: Promise<{ 
                   <input 
                     type="date" 
                     name="assignment_end_date"
-                    defaultValue={quarterEndDates[request.requested_quarter] ?? ''}
+                    defaultValue={QUARTER_CALENDAR.find((q) => q.name === request.requested_quarter)?.endDate ?? ''}
                     required 
                     className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm" 
                   />
