@@ -34,6 +34,7 @@ import {
   upsertAppSetting,
   markPendingReturnRecord,
   updateAssignmentEmailDelivery,
+  updateAssignmentRefundStatus,
   updateLockerRecord,
 } from '@/lib/db';
 
@@ -598,6 +599,27 @@ export async function completeReturn(formData: FormData) {
     logActionError(`Failed to complete return for locker ${lockerId}.`, error);
     redirectToLockerWarning(lockerId, 'Locker return could not be completed right now.');
   }
+  redirect(`/admin/lockers/${lockerId}`);
+}
+
+export async function updateRefundStatus(formData: FormData) {
+  await requireAdmin();
+
+  const requestId = Number(formData.get('request_id'));
+  const lockerId = Number(formData.get('locker_id'));
+  const refundStatus = String(formData.get('refund_status') || '');
+
+  if (!REFUND_STATUSES.includes(refundStatus as never)) redirect(`/admin/lockers/${lockerId}`);
+
+  try {
+    const now = new Date().toISOString();
+    await updateAssignmentRefundStatus(requestId, refundStatus, now);
+    await createAuditLog('UPDATE_REFUND_STATUS', `Refund status updated to ${refundStatus}.`, lockerId, requestId);
+  } catch (error) {
+    logActionError(`Failed to update refund status for request ${requestId}.`, error);
+    redirectToLockerWarning(lockerId, 'Refund status could not be updated right now.');
+  }
+
   redirect(`/admin/lockers/${lockerId}`);
 }
 

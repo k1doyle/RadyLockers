@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, resendAssignmentEmail, updateLocker } from '@/app/actions';
+import { advanceCombo, closeAssignment, completeReturn, markPendingReturn, resendAssignmentEmail, updateLocker, updateRefundStatus } from '@/app/actions';
 import { ActionSubmitButton } from '@/components/action-submit-button';
 import { AdminShell } from '@/components/admin-shell';
 import { TextAreaField, TextField } from '@/components/forms';
@@ -159,6 +159,7 @@ export default async function LockerDetailPage({
                         <p>Fee model: {formatFeeModel(assignment.fee_model)}</p>
                         <p>Charged: {formatCurrency(assignment.amount_charged)}</p>
                         <p>Refundable: {formatCurrency(assignment.refundable_amount)}</p>
+                        <p>Refund status: {formatStatus(assignment.refund_status)}</p>
                         <p>
                           Email status:{' '}
                           {assignment.assignment_email_status === 'SENT' && assignment.assignment_email_sent_at
@@ -170,6 +171,21 @@ export default async function LockerDetailPage({
                         <p>Renewal requested: {assignment.renewal_requested ? 'Yes' : 'No'}</p>
                         <p>Returned: {assignment.returned_date ? new Date(assignment.returned_date).toLocaleDateString() : 'Not yet returned'}</p>
                       </div>
+                      {assignment.request_status === 'CLOSED' && assignment.refund_status === 'PENDING' ? (
+                        <form action={updateRefundStatus} className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4">
+                          <input type="hidden" name="request_id" value={assignment.request_id} />
+                          <input type="hidden" name="locker_id" value={locker.locker_id} />
+                          <label className="block text-sm font-medium text-slate-700">
+                            Update refund
+                            <select name="refund_status" defaultValue="PENDING" className="mt-2 block rounded-xl border border-slate-300 px-4 py-2 text-sm">
+                              <option value="PENDING">Pending</option>
+                              <option value="COMPLETED">Completed</option>
+                              <option value="FORFEITED">Forfeited</option>
+                            </select>
+                          </label>
+                          <button className="rounded-xl bg-brand-navy px-4 py-2 text-sm font-semibold text-white">Save</button>
+                        </form>
+                      ) : null}
                     </div>
                   ))
                 ) : (
