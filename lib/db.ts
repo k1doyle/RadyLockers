@@ -1205,6 +1205,28 @@ export async function completeReturnRecord(input: CompleteReturnInput) {
   throw unsupportedDatabaseError();
 }
 
+export async function updateAssignmentRefundStatus(requestId: number, refundStatus: string, now: string) {
+  if (databaseMode === 'sqlite') {
+    const db = getSqliteDb();
+    db.prepare(`
+      UPDATE assignments
+      SET refund_status = ?, refund_date = ?, updated_at = ?
+      WHERE request_id = ?
+    `).run(refundStatus, refundStatus === 'COMPLETED' ? now : null, now, requestId);
+    return;
+  }
+
+  if (databaseMode === 'postgres') {
+    await postgresQuery(
+      `UPDATE assignments SET refund_status = $1, refund_date = $2, updated_at = $3 WHERE request_id = $4`,
+      [refundStatus, refundStatus === 'COMPLETED' ? now : null, now, requestId],
+    );
+    return;
+  }
+
+  throw unsupportedDatabaseError();
+}
+
 export async function advanceComboRecord(lockerId: number, now: string) {
   if (databaseMode === 'sqlite') {
     const db = getSqliteDb();
