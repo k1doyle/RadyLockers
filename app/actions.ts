@@ -3,7 +3,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
-import { ADMIN_COOKIE, requireAdmin } from '@/lib/auth';
+import { ADMIN_COOKIE, requireAdmin, checkLoginRateLimit, recordFailedLogin, clearLoginAttempts } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { LOCKER_STATUSES, REFUND_STATUSES } from '@/lib/data';
 import { rentalPeriods } from '@/lib/constants';
 import { normalizeCsvHeader, parseCsv } from '@/lib/csv';
@@ -130,7 +131,6 @@ function redirectToLockerWarning(lockerId: number, message: string): never {
 
 async function sendAssignmentEmailAndTrack(
   requestId: number,
-  lockerId: number,
 ) {
   const payload = await getAssignmentEmailPayload(requestId);
 
@@ -239,11 +239,20 @@ export async function submitLockerRequest(formData: FormData) {
 
 export async function loginAdmin(formData: FormData) {
   const password = String(formData.get('password') || '');
+  const headerStore = await headers();
+  const ip = headerStore.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
+
+  const rateLimit = checkLoginRateLimit(ip);
+  if (rateLimit.blocked) {
+    redirect(`/admin/login?error=Too many failed attempts. Try again in ${rateLimit.minutesLeft} minute${rateLimit.minutesLeft === 1 ? '' : 's'}.`);
+  }
 
   if (!process.env.ADMIN_PASSWORD || password !== process.env.ADMIN_PASSWORD) {
+    recordFailedLogin(ip);
     redirect('/admin/login?error=Invalid password');
   }
 
+  clearLoginAttempts(ip);
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_COOKIE, 'authenticated', {
     httpOnly: true,
@@ -460,7 +469,7 @@ export async function assignLocker(formData: FormData) {
 
     await createAuditLog('ASSIGN_LOCKER', `Assigned locker ${assignment.locker_number} to ${assignment.student_name}.`, lockerId, requestId);
 
-    const emailResult = await sendAssignmentEmailAndTrack(requestId, lockerId);
+    const emailResult = await sendAssignmentEmailAndTrack(requestId);
     if (!emailResult.sent) {
       destination += '?emailWarning=' + encodeURIComponent(`Locker assignment saved, but the email was not sent. ${emailResult.reason}`);
     } else if (!emailResult.internalCopyRecipient) {
@@ -482,7 +491,7 @@ export async function resendAssignmentEmail(formData: FormData) {
   let destination = `/admin/lockers/${lockerId}`;
 
   try {
-    const result = await sendAssignmentEmailAndTrack(requestId, lockerId);
+    const result = await sendAssignmentEmailAndTrack(requestId);
 
     if (!result.sent) {
       destination += '?emailWarning=' + encodeURIComponent(`Locker details were not resent. ${result.reason}`);
